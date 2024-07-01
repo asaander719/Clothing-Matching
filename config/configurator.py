@@ -2,6 +2,7 @@ import os
 import yaml
 import argparse
 from util import config
+import torch
 
 def parse_configure():
     parser = argparse.ArgumentParser(description='APCL')
@@ -12,14 +13,12 @@ def parse_configure():
     parser.add_argument('--batch_size', type=int, default=512, help='batch_size number')
     parser.add_argument('--test_batch_size', type=int, default=512, help='batch_size number')
     parser.add_argument('--mode', type=str, default='RB', help='given top, recommend bottom')
+    parser.add_argument('--patience', type=int, default='10', help='patience for early stop')
     parser.add_argument('--config', type=str, default='config/APCL_Polyvore_519_RB.yaml', help='config file') #APCL_IQON3000_RB.yaml #APCL_Polyvore_RB.yaml
     parser.add_argument('opts', help='see config/APCL_Polyvore_RB.yaml for all options', default=None, nargs=argparse.REMAINDER)
     args = parser.parse_args()
     
-    if args.device == 'cuda':
-        os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
-    else:
-        args.device == "cpu"
+    args.device = torch.device('cuda:%s' % args.cuda if torch.cuda.is_available() else 'cpu')
     
     if args.arch == None:
         raise Exception("Please provide the model name through --model.")
@@ -37,6 +36,7 @@ def parse_configure():
         cfg.cuda = args.cuda
         cfg.batch_size = args.batch_size
         cfg.test_batch_size = args.test_batch_size
+        cfg.patience = args.patience
     return cfg
     # if not os.path.exists('./config/{}_{}_{}.yaml'.format(args.arch, args.dataset, args.mode)): #config/APCL_Polyvore_RB.yaml
     #     raise Exception("Please create the yaml file for your model first.")

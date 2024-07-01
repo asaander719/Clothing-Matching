@@ -21,41 +21,43 @@ class GPBPR(nn.Module):
         self.with_Nor = arg.with_Nor
         self.cos = arg.cos
         #for compatibility space
-        self.visual_nn = nn.Sequential(
-            nn.Linear(arg.visual_feature_dim, self.hidden_dim),
-            nn.Sigmoid())
-        self.visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-
-        #for personalization space
-        self.p_visual_nn = nn.Sequential(
-            nn.Linear(arg.visual_feature_dim, self.hidden_dim),
-            nn.Sigmoid())
-        self.p_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.p_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-
-        if self.arg.dataset == 'IQON3000':
-            self.text_nn = nn.Sequential(
-                nn.Linear(100 * arg.textcnn_layer, self.hidden_dim),
-                nn.Sigmoid()) 
-
-            self.p_text_nn = nn.Sequential(
-                nn.Linear(100 * arg.textcnn_layer, self.hidden_dim),
+        if self.with_visual:
+            self.visual_nn = nn.Sequential(
+                nn.Linear(arg.visual_feature_dim, self.hidden_dim),
                 nn.Sigmoid())
+            self.visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
 
-        elif self.arg.dataset == 'Polyvore_519':
-            self.text_nn = nn.Sequential(
-                nn.Linear(arg.text_feature_dim, self.hidden_dim),
-                nn.Sigmoid()) 
-
-            self.p_text_nn = nn.Sequential(
-                nn.Linear(arg.text_feature_dim, self.hidden_dim),
+            #for personalization space
+            self.p_visual_nn = nn.Sequential(
+                nn.Linear(arg.visual_feature_dim, self.hidden_dim),
                 nn.Sigmoid())
-            
-        self.text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))       
-        self.p_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.p_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001)) 
+            self.p_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.p_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+
+        if self.with_text:
+            if self.arg.dataset == 'IQON3000':
+                self.text_nn = nn.Sequential(
+                    nn.Linear(100 * arg.textcnn_layer, self.hidden_dim),
+                    nn.Sigmoid()) 
+
+                self.p_text_nn = nn.Sequential(
+                    nn.Linear(100 * arg.textcnn_layer, self.hidden_dim),
+                    nn.Sigmoid())
+
+            elif self.arg.dataset == 'Polyvore_519':
+                self.text_nn = nn.Sequential(
+                    nn.Linear(arg.text_feature_dim, self.hidden_dim),
+                    nn.Sigmoid()) 
+
+                self.p_text_nn = nn.Sequential(
+                    nn.Linear(arg.text_feature_dim, self.hidden_dim),
+                    nn.Sigmoid())
+                
+            self.text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))       
+            self.p_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.p_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001)) 
         
         if self.with_visual:
             self.visual_features = visual_features.to(arg.device)
@@ -200,18 +202,21 @@ class GPBPR(nn.Module):
         Us = batch[0] #bs
         Is = batch[1]
         Js = batch[2]
-        Ks_list = batch[3] #torch.Size([256, 1])
+        Ks_list = batch[3] #batch as negative: torch.Size([256, 1]) # random sample all bottoms: bs, neg_num [256,200]
         # J_list = torch.cat([Js.unsqueeze(1), Ks_list], dim=-1)  #torch.Size([256, 2])
-        candi_num = 1 + Ks_list.size(0)  # one positive + all negative #257
+        if self.arg.wide_infer and not self.arg.wide_evaluate: #for test
+            candi_num = 1 + Ks_list.size(1) # one positive + all negative # 1 + 200
+        elif self.arg.wide_evaluate and not self.arg.wide_infer:
+            candi_num = 1 + Ks_list.size(0)  # one positive + batch negative # bs + 1
         bs = len(Us)
 
         if self.with_visual:
             vis_I = self.visual_features[Is] #bs,visual_feature_dim = 2048 = torch.Size([256, 2048])
             vis_J = self.visual_features[Js]
-            if self.arg.wide_evaluate:
-                vis_K = self.visual_features[Ks_list.squeeze(1)] 
+            if self.arg.wide_evaluate and not self.arg.wide_evaluate: # for training evaluaction
+                vis_K = self.visual_features[Ks_list.squeeze(1)] # bs, f_dim
             else:
-                vis_K = self.visual_features[Ks_list] 
+                vis_K = self.visual_features[Ks_list] # bs, neg_num, f_dim
   
             I_visual_latent = self.visual_nn(vis_I) #bs, hidden_dim =torch.Size([256, 512])
             J_visual_latent = self.visual_nn(vis_J)
@@ -229,38 +234,55 @@ class GPBPR(nn.Module):
                 J_visual_latent_p = F.normalize(J_visual_latent_p,dim=0)
                 K_visual_latent_p = F.normalize(K_visual_latent_p,dim=0)
                 I_visual_latent_p = F.normalize(I_visual_latent_p,dim=0)
+            if self.arg.wide_evaluate and not self.arg.wide_infer:
+                I_visual_latent, Jks_visual_latent = self.wide_infer(bs, candi_num, J_visual_latent, K_visual_latent.unsqueeze(0).expand(bs, -1, -1), I_visual_latent)
+            else:
+                I_visual_latent, Jks_visual_latent = self.wide_infer(bs, candi_num, J_visual_latent, K_visual_latent, I_visual_latent)
 
-            I_visual_latent, Jks_visual_latent = self.wide_infer(bs, candi_num, J_visual_latent, K_visual_latent, I_visual_latent)
             if self.cos:
                 visual_ijs_score = F.cosine_similarity(I_visual_latent, Jks_visual_latent, dim=-1)    #256,257    
             else:
                 visual_ijs_score = torch.sum(I_visual_latent * Jks_visual_latent, dim=-1)
                  
       
-        if self.with_text:
+        if self.arg.with_text:
             if self.arg.dataset == 'IQON3000':
                 text_I = self.text_embedding(self.text_features[Is].long()) #256,83,300 text_I = self.text_embedding(self.text_features[Is]) 
                 text_J = self.text_embedding(self.text_features[Js].long())
-                if self.arg.wide_evaluate:
+                if self.arg.wide_evaluate and not self.arg.wide_infer:
                     text_K = self.text_embedding(self.text_features[Ks_list.squeeze(1)].long())
+                    K_text_fea = self.textcnn(text_K.unsqueeze(1))
+                    K_text_latent = self.text_nn(K_text_fea)
+                    K_text_latent_p = self.p_text_nn(K_text_fea)
                 else:
-                    text_K = self.text_embedding(self.text_features[Ks_list].long())
-                I_text_fea = self.textcnn(text_I.unsqueeze(1))  #256,400
+                    text_K = self.text_embedding(self.text_features[Ks_list].long()) #bc, neg_num, 83, 300
+                    if self.arg.wide_infer:
+                        K_text_fea = self.textcnn(text_K.reshape(bs * Ks_list.size(1), self.arg.max_sentence, self.arg.text_feature_dim).unsqueeze(1))
+                        # bc * neg_num, 83, 300
+                        K_text_latent = self.text_nn(K_text_fea)
+                        K_text_latent_p = self.p_text_nn(K_text_fea)
+                        K_text_latent = K_text_latent.reshape(bs, Ks_list.size(1), self.hidden_dim) 
+                        K_text_latent_p = K_text_latent_p.reshape(bs, Ks_list.size(1), self.hidden_dim) 
+                    else:
+                        K_text_fea = self.textcnn(text_K.unsqueeze(1)) 
+                        K_text_latent = self.text_nn(K_text_fea)
+                        K_text_latent_p = self.p_text_nn(K_text_fea)
+                I_text_fea = self.textcnn(text_I.unsqueeze(1))  #bc, 1, 83, 300 -> 256,400
                 J_text_fea = self.textcnn(text_J.unsqueeze(1))
-                K_text_fea = self.textcnn(text_K.unsqueeze(1))
+                
 
                 I_text_latent = self.text_nn(I_text_fea) #256,512
                 J_text_latent = self.text_nn(J_text_fea)
-                K_text_latent = self.text_nn(K_text_fea)
+                # K_text_latent = self.text_nn(K_text_fea)
 
                 J_text_latent_p = self.p_text_nn(J_text_fea)
-                K_text_latent_p = self.p_text_nn(K_text_fea)
+                # K_text_latent_p = self.p_text_nn(K_text_fea)
                 I_text_latent_p = self.p_text_nn(I_text_fea)
 
             elif self.arg.dataset == 'Polyvore_519':
                 text_I = self.text_features[Is] #256,83,300
                 text_J = self.text_features[Js]
-                if self.arg.wide_evaluate:
+                if self.arg.wide_evaluate and not self.arg.wide_infer:
                     text_K = self.text_features[Ks_list.squeeze(1)]
                 else:
                     text_K = self.text_features[Ks_list]
@@ -282,8 +304,10 @@ class GPBPR(nn.Module):
                 J_text_latent_p = F.normalize(J_text_latent_p,dim=0)
                 K_text_latent_p = F.normalize(K_text_latent_p,dim=0)
                 I_text_latent_p = F.normalize(I_text_latent_p,dim=0)
-
-            I_text_latent, Jks_text_latent = self.wide_infer(bs, candi_num, J_text_latent, K_text_latent, I_text_latent)
+            if self.arg.wide_evaluate and not self.arg.wide_infer:
+                I_text_latent, Jks_text_latent = self.wide_infer(bs, candi_num, J_text_latent, K_text_latent.unsqueeze(0).expand(bs, -1, -1), I_text_latent)
+            else:
+                I_text_latent, Jks_text_latent = self.wide_infer(bs, candi_num, J_text_latent, K_text_latent, I_text_latent)
             # I_text_latent_p, JKs_text_latent_p = self.wide_infer(bs, candi_num, J_text_latent_p, K_text_latent_p, I_text_latent_p)
       
             if self.cos:
@@ -293,13 +317,13 @@ class GPBPR(nn.Module):
 
         if self.with_visual and self.with_text:
             if self.arg.b_PC:  
-                if self.arg.wide_evaluate: 
-                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), J_visual_latent_p, J_text_latent_p, K_visual_latent_p, K_text_latent_p) 
+                if self.arg.wide_evaluate and not self.arg.wide_infer: 
+                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), J_visual_latent_p, J_text_latent_p, K_visual_latent_p.unsqueeze(0).expand(bs, -1, -1), K_text_latent_p.unsqueeze(0).expand(bs, -1, -1)) 
                 else:
                     score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list, J_visual_latent_p, J_text_latent_p, K_visual_latent_p, K_text_latent_p)      
             else:
-                if self.arg.wide_evaluate:
-                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), J_visual_latent, J_text_latent, K_visual_latent, K_text_latent) 
+                if self.arg.wide_evaluate and not self.arg.wide_infer:
+                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), J_visual_latent, J_text_latent, K_visual_latent.unsqueeze(0).expand(bs, -1, -1), K_text_latent.unsqueeze(0).expand(bs, -1, -1)) 
                 else:
                     score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list, J_visual_latent, J_text_latent, K_visual_latent, K_text_latent) 
 
@@ -308,13 +332,13 @@ class GPBPR(nn.Module):
 
         if self.with_visual and not self.with_text: # without text
             if self.arg.b_PC:   
-                if self.arg.wide_evaluate: 
-                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), J_visual_latent_p, None, K_visual_latent_p, None)
+                if self.arg.wide_evaluate and not self.arg.wide_infer: 
+                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), J_visual_latent_p, None, K_visual_latent_p.unsqueeze(0).expand(bs, -1, -1), None)
                 else:
                     score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list, J_visual_latent_p, None, K_visual_latent_p, None)     
             else:
-                if self.arg.wide_evaluate: 
-                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), J_visual_latent, None, K_visual_latent, None) 
+                if self.arg.wide_evaluate and not self.arg.wide_infer:  
+                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), J_visual_latent, None, K_visual_latent.unsqueeze(0).expand(bs, -1, -1), None) 
                 else:
                     score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list, J_visual_latent, None, K_visual_latent, None) 
 
@@ -323,13 +347,13 @@ class GPBPR(nn.Module):
         
         if not self.with_visual and self.with_text: # without visual
             if self.arg.b_PC:   
-                if self.arg.wide_evaluate: 
-                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), None, J_text_latent_p, None, K_text_latent_p) 
+                if self.arg.wide_evaluate and not self.arg.wide_infer:  
+                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), None, J_text_latent_p, None, K_text_latent_p.unsqueeze(0).expand(bs, -1, -1)) 
                 else:
                     score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list, None, J_text_latent_p, None, K_text_latent_p)    
             else:
-                if self.arg.wide_evaluate: 
-                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), None, J_text_latent, None, K_text_latent) 
+                if self.arg.wide_evaluate and not self.arg.wide_infer: 
+                    score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), None, J_text_latent, None, K_text_latent.unsqueeze(0).expand(bs, -1, -1)) 
                 else:
                     score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list, None, J_text_latent, None, K_text_latent)
 
@@ -337,7 +361,7 @@ class GPBPR(nn.Module):
             score = self.weight_P * score_p  + (1 - self.weight_P) * score_c
 
         if not self.with_visual and not self.with_text: # without visual & text
-            if self.arg.wide_evaluate:   
+            if self.arg.wide_evaluate and not self.arg.wide_infer:  
                 score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list.squeeze(1), None, None, None, None)   
             else:
                 score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list, None, None, None, None)         
@@ -346,8 +370,13 @@ class GPBPR(nn.Module):
         return score
     
     def wide_infer(self, bs, candi_num, J, K, I):
-        J = J.unsqueeze(1) #256,1,512
-        K = K.unsqueeze(0).expand(bs, -1, -1) #1,256,512->256,256,512
+        J = J.unsqueeze(1) #256,1,512 
+        # if self.arg.wide_infer:
+        #     # if self.arg.dataset == 'IQON3000':
+        #     # elif self.arg.dataset == 'Polyvore_519':
+        #     K = K #bs, neg_num, dim
+        # else:
+        #     K = K.unsqueeze(0).expand(bs, -1, -1) #1,256,512->256,256,512
         Jks = torch.cat([J, K], dim=1) #256,257,512 # dim=1 里面第一个为postive target(1+256)
         I= I.unsqueeze(1).expand(-1, candi_num, -1) # 256,257,512
         return I, Jks

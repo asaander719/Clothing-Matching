@@ -21,29 +21,27 @@ class CRBPR(nn.Module):
         self.UC = args.UC
         self.GC = args.GC
         #for compatibility space
-        self.visual_nn = nn.Sequential(nn.Linear(args.visual_feature_dim, self.hidden_dim),nn.Sigmoid())
-        self.visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-   
-        #for personalization space
-        self.p_visual_nn = nn.Sequential(nn.Linear(args.visual_feature_dim, self.hidden_dim),nn.Sigmoid())
-        self.p_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.p_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-
-        #for UC space
-        self.s_visual_nn = nn.Sequential(nn.Linear(args.visual_feature_dim, self.hidden_dim),nn.Sigmoid())
-        self.s_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.s_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-
-        #for IC space
-        self.s3_visual_nn = nn.Sequential(nn.Linear(args.visual_feature_dim, self.hidden_dim),nn.Sigmoid())
-        self.s3_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.s3_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-
-        self.sigmoid = nn.Sigmoid()
-        
         if self.with_visual:
             self.visual_features = visual_features.to(args.device)
+            self.visual_nn = nn.Sequential(nn.Linear(args.visual_feature_dim, self.hidden_dim),nn.Sigmoid())
+            self.visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+    
+            #for personalization space
+            self.p_visual_nn = nn.Sequential(nn.Linear(args.visual_feature_dim, self.hidden_dim),nn.Sigmoid())
+            self.p_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.p_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+
+            #for UC space
+            self.s_visual_nn = nn.Sequential(nn.Linear(args.visual_feature_dim, self.hidden_dim),nn.Sigmoid())
+            self.s_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.s_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+
+            #for IC space
+            self.s3_visual_nn = nn.Sequential(nn.Linear(args.visual_feature_dim, self.hidden_dim),nn.Sigmoid())
+            self.s3_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.s3_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+            
         if self.with_text:
             self.text_features = text_features.to(args.device)
             if self.args.dataset == 'IQON3000':
@@ -60,14 +58,14 @@ class CRBPR(nn.Module):
                 self.s_text_nn = nn.Sequential(nn.Linear(args.text_feature_dim, self.hidden_dim),nn.Sigmoid())
                 self.s3_text_nn = nn.Sequential(nn.Linear(args.text_feature_dim, self.hidden_dim),nn.Sigmoid())
 
-        self.text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-        self.p_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.p_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-        self.s_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.s_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-        self.s3_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.s3_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+            self.text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+            self.p_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.p_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+            self.s_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.s_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+            self.s3_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.s3_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
 
         self.vtbpr = VTBPR(self.user_num, self.item_num, hidden_dim=self.hidden_dim, 
             theta_text=self.with_text, theta_visual=self.with_visual, with_Nor=True, cos=True)
@@ -195,10 +193,10 @@ class CRBPR(nn.Module):
             #add similarity 
             if self.UC:
                 if self.args.dataset == 'IQON3000':
-                    text_bhis = self.text_embedding(self.text_features[bhis]) #torch.Size([64, 3, 83, 300])
-                    bhis_text_fea = self.textcnn(text_bhis.reshape(bs * self.arg.num_his, self.arg.max_sentence, self.arg.text_feature_dim).unsqueeze(1))  #bs, 400(100*layers)
+                    text_bhis = self.text_embedding(self.text_features[bhis].long()) #torch.Size([64, 3, 83, 300])
+                    bhis_text_fea = self.textcnn(text_bhis.reshape(bs * self.args.num_his, self.args.max_sentence, self.args.text_feature_dim).unsqueeze(1))  #bs, 400(100*layers)
                     bhis_text_fea = self.s_text_nn(bhis_text_fea) #torch.Size([192, 512])
-                    bhis_text_fea = bhis_text_fea.reshape(bs, self.arg.num_his, self.hidden_dim) #64, 3, 512
+                    bhis_text_fea = bhis_text_fea.reshape(bs, self.args.num_his, self.hidden_dim) #64, 3, 512
                     bhis_text_fea_mean = torch.mean(bhis_text_fea, dim=-2) #torch.Size([bs, 512])
                     text_J_p = self.s_text_nn(J_text_fea)
                     text_K_p = self.s_text_nn(K_text_fea)
@@ -232,10 +230,10 @@ class CRBPR(nn.Module):
 
             if self.GC:
                 if self.args.dataset == 'IQON3000':
-                    text_this = self.text_embedding(self.text_features[this]) #torch.Size([64, 3, 83, 300])
-                    this_text_fea = self.textcnn(text_this.reshape(bs * self.arg.num_his, self.arg.max_sentence, self.arg.text_feature_dim).unsqueeze(1))  #bs, 400(100*layers)
+                    text_this = self.text_embedding(self.text_features[this].long()) #torch.Size([64, 3, 83, 300])
+                    this_text_fea = self.textcnn(text_this.reshape(bs * self.args.num_his, self.args.max_sentence, self.args.text_feature_dim).unsqueeze(1))  #bs, 400(100*layers)
                     this_text_fea = self.s3_text_nn(this_text_fea) #torch.Size([192, 512])
-                    this_text_fea = this_text_fea.reshape(bs, self.arg.num_his, self.hidden_dim) #64, 3, 512
+                    this_text_fea = this_text_fea.reshape(bs, self.args.num_his, self.hidden_dim) #64, 3, 512
                     this_text_fea_mean = torch.mean(this_text_fea, dim=-2) #torch.Size([bs, 512])
                     text_J_c = self.s3_text_nn(J_text_fea)
                     text_K_c = self.s3_text_nn(K_text_fea)
@@ -479,7 +477,7 @@ class CRBPR(nn.Module):
             #add similarity 
             if self.UC:
                 if self.args.dataset == 'IQON3000':
-                    text_bhis = self.text_embedding(self.text_features[bhis]) #torch.Size([64, 3, 83, 300])
+                    text_bhis = self.text_embedding(self.text_features[bhis].long()) #torch.Size([64, 3, 83, 300])
                     bhis_text_fea = self.textcnn(text_bhis.reshape(bs * self.args.num_his, self.args.max_sentence, self.args.text_feature_dim).unsqueeze(1))  #bs, 400(100*layers)
                     bhis_text_fea = self.s_text_nn(bhis_text_fea) #torch.Size([192, 512])
                     bhis_text_fea = bhis_text_fea.reshape(bs, self.args.num_his, self.hidden_dim) #64, 3, 512
@@ -514,7 +512,7 @@ class CRBPR(nn.Module):
 
             if self.GC:
                 if self.args.dataset == 'IQON3000':
-                    text_this = self.text_embedding(self.text_features[this]) #torch.Size([64, 3, 83, 300])
+                    text_this = self.text_embedding(self.text_features[this].long()) #torch.Size([64, 3, 83, 300])
                     this_text_fea = self.textcnn(text_this.reshape(bs * self.args.num_his, self.args.max_sentence, self.args.text_feature_dim).unsqueeze(1))  #bs, 400(100*layers)
                     this_text_fea = self.s3_text_nn(this_text_fea) #torch.Size([192, 512])
                     this_text_fea = this_text_fea.reshape(bs, self.args.num_his, self.hidden_dim) #64, 3, 512

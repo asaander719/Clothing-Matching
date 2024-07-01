@@ -1,18 +1,11 @@
 # liao shuiying 2/28/2024
 import torch
-# from torch import load, sigmoid, cat, rand, bmm, mean, matmul
-from torch.nn.functional import logsigmoid
 from torch.nn.init import uniform_
-# from torch.nn import *
 import torch.nn as nn
-# import pandas as pd
-# import numpy as np
 import torch.nn.functional as F
-# from util.utils import get_parser
 from Models.BPRs.BPR import BPR
 from Models.BPRs.VTBPR import VTBPR
 from Models.BPRs.TextCNN import TextCNN
-
 
 class SelfAttention(nn.Module):
     def __init__(self, input_dim, output_dim):
@@ -56,72 +49,73 @@ class APCL(nn.Module):
         self.att = args.att
         self.use_weighted_loss = args.use_weighted_loss
         self.temperature = args.temperature
-        #for compatibility space
-        self.visual_nn = nn.Sequential(
-            nn.Linear(args.visual_feature_dim, self.hidden_dim),
-            nn.Sigmoid())
-        self.visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-
-        #for personalization space
-        self.p_visual_nn = nn.Sequential(
-            nn.Linear(args.visual_feature_dim, self.hidden_dim),
-            nn.Sigmoid())
-        self.p_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.p_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-
-        #for att space
-        self.att_visual_nn = nn.Sequential(
-            nn.Linear(args.visual_feature_dim, self.hidden_dim),
-            nn.Sigmoid())
-        self.att_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.att_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
-
-        if self.args.dataset == 'IQON3000':
-            self.text_nn = nn.Sequential(
-                nn.Linear(100 * args.textcnn_layer, self.hidden_dim),
-                nn.Sigmoid()) 
-
-            self.p_text_nn = nn.Sequential(
-                nn.Linear(100 * args.textcnn_layer, self.hidden_dim),
-                nn.Sigmoid())
-
-            self.att_text_nn = nn.Sequential(
-                nn.Linear(100 * args.textcnn_layer, self.hidden_dim),
-                nn.Sigmoid())
-
-        elif self.args.dataset == 'Polyvore_519':
-            self.text_nn = nn.Sequential(
-                nn.Linear(args.text_feature_dim, self.hidden_dim),
-                nn.Sigmoid()) 
-
-            self.p_text_nn = nn.Sequential(
-                nn.Linear(args.text_feature_dim, self.hidden_dim),
-                nn.Sigmoid())
-
-            self.att_text_nn = nn.Sequential(
-                nn.Linear(args.text_feature_dim, self.hidden_dim),
-                nn.Sigmoid())
-
-        self.text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))       
-        self.p_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.p_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))     
-        self.att_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
-        self.att_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+        self.CL = args.CL
         
         if self.with_visual:
-            self.visual_features = visual_features.to(args.device)
-            self.V_attention = SelfAttention(input_dim= args.visual_feature_dim, output_dim = args.visual_feature_dim)
+            self.visual_features = visual_features.to(args.device)  
+            #for compatibility space     
+            self.visual_nn = nn.Sequential(
+                nn.Linear(args.visual_feature_dim, self.hidden_dim),
+                nn.Sigmoid())
+            self.visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+
+            #for personalization space
+            self.p_visual_nn = nn.Sequential(
+                nn.Linear(args.visual_feature_dim, self.hidden_dim),
+                nn.Sigmoid())
+            self.p_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.p_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+            if self.att:
+                #for att space
+                self.att_visual_nn = nn.Sequential(
+                    nn.Linear(args.visual_feature_dim, self.hidden_dim),
+                    nn.Sigmoid())
+                self.att_visual_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+                self.att_visual_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+                self.V_attention = SelfAttention(input_dim= args.visual_feature_dim, output_dim = args.visual_feature_dim)
+            
         if self.with_text:    
             self.text_features = text_features.to(args.device)
             if self.args.dataset == 'IQON3000':
-                # self.max_sentense_length = args.max_sentence
+                self.max_sentense_length = args.max_sentence
                 self.text_embedding = nn.Embedding.from_pretrained(embedding_weight, freeze=False) #tensor([[23521, 38583, 21480,  ..., 54275, 54275, 54275],...])
                 self.textcnn = TextCNN(args.textcnn_layer, sentence_size=(args.max_sentence, args.text_feature_dim), output_size=self.hidden_dim)
                 self.T_attention = SelfAttention(input_dim= 100 * args.textcnn_layer, output_dim = 100 * args.textcnn_layer)
-            else:
-                self.T_attention = SelfAttention(input_dim= args.text_feature_dim, output_dim = args.text_feature_dim)
+                self.text_nn = nn.Sequential(
+                nn.Linear(100 * args.textcnn_layer, self.hidden_dim),
+                nn.Sigmoid()) 
+
+                self.p_text_nn = nn.Sequential(
+                    nn.Linear(100 * args.textcnn_layer, self.hidden_dim),
+                    nn.Sigmoid())
+                if self.att:
+                    self.att_text_nn = nn.Sequential(
+                        nn.Linear(100 * args.textcnn_layer, self.hidden_dim),
+                        nn.Sigmoid())  
+                    self.att_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+                    self.att_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))  
+           
+            elif self.args.dataset == 'Polyvore_519':
+                self.text_nn = nn.Sequential(
+                nn.Linear(args.text_feature_dim, self.hidden_dim),
+                nn.Sigmoid()) 
+
+                self.p_text_nn = nn.Sequential(
+                    nn.Linear(args.text_feature_dim, self.hidden_dim),
+                    nn.Sigmoid())
+                if self.att:
+                    self.T_attention = SelfAttention(input_dim= args.text_feature_dim, output_dim = args.text_feature_dim)
+                    self.att_text_nn = nn.Sequential(
+                        nn.Linear(args.text_feature_dim, self.hidden_dim),
+                        nn.Sigmoid())
+                    self.att_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+                    self.att_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))
+            self.text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))       
+            self.p_text_nn[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
+            self.p_text_nn[0].apply(lambda module: uniform_(module.bias.data,0,0.001))     
+
         self.vtbpr = VTBPR(self.user_num, self.item_num, hidden_dim=self.hidden_dim, 
             theta_text=self.with_text, theta_visual=self.with_visual, with_Nor=True, cos=True)
         print('Module already prepared, {} users, {} items'.format(self.user_num, self.item_num))
@@ -279,35 +273,37 @@ class APCL(nn.Module):
             if self.args.b_PC:
                 cuj = self.vtbpr(Us, Js, J_visual_latent_p, J_text_latent_p) #torch.Size(bs)
                 cuk = self.vtbpr(Us, Ks, K_visual_latent_p, K_text_latent_p)
+                if self.CL:
+                    v_logits = torch.sum(J_visual_latent_p[:, None, :] * J_visual_latent[:, :, None], dim=-1) / self.temperature
+                    # 计算v和负样本的点积，然后除以温度
+                    v_neg_logits = torch.sum(J_visual_latent_p[:, None, :] * K_visual_latent_p[:, :, None], dim=-1) / self.temperature
 
-                #infoNCE loss: Bottom in p space and c space
-                v_logits = torch.sum(J_visual_latent_p[:, None, :] * J_visual_latent[:, :, None], dim=-1) / self.temperature
-                # 计算v和负样本的点积，然后除以温度
-                v_neg_logits = torch.sum(J_visual_latent_p[:, None, :] * K_visual_latent_p[:, :, None], dim=-1) / self.temperature
+                    # 计算InfoNCE损失
+                    infoNCE_v_loss_pc = -v_logits + torch.logsumexp(torch.cat([v_logits.unsqueeze(2), v_neg_logits.unsqueeze(2)], dim=2), dim=2)
+                    infoNCE_v_loss_pc = infoNCE_v_loss_pc.mean()
 
-                # 计算InfoNCE损失
-                infoNCE_v_loss_pc = -v_logits + torch.logsumexp(torch.cat([v_logits.unsqueeze(2), v_neg_logits.unsqueeze(2)], dim=2), dim=2)
-                infoNCE_v_loss_pc = infoNCE_v_loss_pc.mean()
+                    t_logits = torch.sum(J_text_latent_p[:, None, :] * J_text_latent[:, :, None], dim=-1) / self.temperature
+                    # 计算v和负样本的点积，然后除以温度
+                    t_neg_logits = torch.sum(J_text_latent_p[:, None, :] * K_text_latent_p[:, :, None], dim=-1) / self.temperature
 
-
-                t_logits = torch.sum(J_text_latent_p[:, None, :] * J_text_latent[:, :, None], dim=-1) / self.temperature
-                # 计算v和负样本的点积，然后除以温度
-                t_neg_logits = torch.sum(J_text_latent_p[:, None, :] * K_text_latent_p[:, :, None], dim=-1) / self.temperature
-
-                # 计算InfoNCE损失
-                infoNCE_t_loss_pc = -t_logits + torch.logsumexp(torch.cat([t_logits.unsqueeze(2), t_neg_logits.unsqueeze(2)], dim=2), dim=2)
-                infoNCE_t_loss_pc = infoNCE_t_loss_pc.mean()
+                    # 计算InfoNCE损失
+                    infoNCE_t_loss_pc = -t_logits + torch.logsumexp(torch.cat([t_logits.unsqueeze(2), t_neg_logits.unsqueeze(2)], dim=2), dim=2)
+                    infoNCE_t_loss_pc = infoNCE_t_loss_pc.mean()
+                else:
+                    infoNCE_v_loss_pc == 0
+                    infoNCE_t_loss_pc == 0
 
             else:
                 cuj = self.vtbpr(Us, Js, J_visual_latent, J_text_latent) #torch.Size(bs)
                 cuk = self.vtbpr(Us, Ks, K_visual_latent, K_text_latent)
+                #infoNCE loss: Bottom in p space and c space
                 infoNCE_v_loss_pc == 0
                 infoNCE_t_loss_pc == 0
 
-            # p_ij = 0.5 * (visual_ij + text_ij)
-            # p_ik = 0.5 * (visual_ik + text_ik)
-            p_ij = (visual_ij + text_ij)
-            p_ik = (visual_ik + text_ik)
+            p_ij = 0.5 * (visual_ij + text_ij)
+            p_ik = 0.5 * (visual_ik + text_ik)
+            # p_ij = (visual_ij + text_ij)
+            # p_ik = (visual_ik + text_ik)
 
             # pred = self.weight_P * p_ij + (1 - self.weight_P) * cuj - (self.weight_P * p_ik + (1 - self.weight_P) * cuk)
             if self.use_weighted_loss:
@@ -323,24 +319,26 @@ class APCL(nn.Module):
                 # U_BuK = self.w1 * (self.args.uu_v_w * Visual_UuK + (1-self.args.uu_v_w) * Text_UuK)
 
                 pred = pred + U_BuJ - U_BuK
-
+                if self.CL:
                 #infoNCE loss: Bottom in p space and ps space
-                v2_logits = torch.sum(J_visual_latent_p[:, None, :] * vis_J_u[:, :, None], dim=-1) / self.temperature
-                # [:, None, :] 将 J 的形状从 [batch, output_dim] 转变为 [batch, 1, output_dim],torch.sum: [batch, output_dim]
-                v2_neg_logits = torch.sum(J_visual_latent_p[:, None, :] * vis_K_u[:, :, None], dim=-1) / self.temperature
+                    v2_logits = torch.sum(J_visual_latent_p[:, None, :] * vis_J_u[:, :, None], dim=-1) / self.temperature
+                    # [:, None, :] 将 J 的形状从 [batch, output_dim] 转变为 [batch, 1, output_dim],torch.sum: [batch, output_dim]
+                    v2_neg_logits = torch.sum(J_visual_latent_p[:, None, :] * vis_K_u[:, :, None], dim=-1) / self.temperature
 
-                # 计算InfoNCE损失
-                infoNCE_v_loss_ps = -v2_logits + torch.logsumexp(torch.cat([v2_logits.unsqueeze(2), v2_neg_logits.unsqueeze(2)], dim=2), dim=2)
-                infoNCE_v_loss_ps = infoNCE_v_loss_ps.mean()
+                    # 计算InfoNCE损失
+                    infoNCE_v_loss_ps = -v2_logits + torch.logsumexp(torch.cat([v2_logits.unsqueeze(2), v2_neg_logits.unsqueeze(2)], dim=2), dim=2)
+                    infoNCE_v_loss_ps = infoNCE_v_loss_ps.mean()
 
+                    t2_logits = torch.sum(J_text_latent_p[:, None, :] * text_J_u[:, :, None], dim=-1) / self.temperature
+                    # 计算v和负样本的点积，然后除以温度
+                    t2_neg_logits = torch.sum(J_text_latent_p[:, None, :] * text_K_u[:, :, None], dim=-1) / self.temperature
 
-                t2_logits = torch.sum(J_text_latent_p[:, None, :] * text_J_u[:, :, None], dim=-1) / self.temperature
-                # 计算v和负样本的点积，然后除以温度
-                t2_neg_logits = torch.sum(J_text_latent_p[:, None, :] * text_K_u[:, :, None], dim=-1) / self.temperature
-
-                # 计算InfoNCE损失
-                infoNCE_t_loss_ps = -t2_logits + torch.logsumexp(torch.cat([t2_logits.unsqueeze(2), t2_neg_logits.unsqueeze(2)], dim=2), dim=2)
-                infoNCE_t_loss_ps = infoNCE_t_loss_ps.mean()
+                    # 计算InfoNCE损失
+                    infoNCE_t_loss_ps = -t2_logits + torch.logsumexp(torch.cat([t2_logits.unsqueeze(2), t2_neg_logits.unsqueeze(2)], dim=2), dim=2)
+                    infoNCE_t_loss_ps = infoNCE_t_loss_ps.mean()
+                else:
+                    infoNCE_v_loss_ps == 0 
+                    infoNCE_t_loss_ps == 0
 
             else:
                 infoNCE_v_loss_ps == 0 
@@ -350,17 +348,30 @@ class APCL(nn.Module):
             if self.args.b_PC:
                 cuj = self.vtbpr(Us, Js, J_visual_latent_p, None) #torch.Size(bs)
                 cuk = self.vtbpr(Us, Ks, K_visual_latent_p, None)
+                if self.CL:
+                    v_logits = torch.sum(J_visual_latent_p[:, None, :] * J_visual_latent[:, :, None], dim=-1) / self.temperature
+                    # 计算v和负样本的点积，然后除以温度
+                    v_neg_logits = torch.sum(J_visual_latent_p[:, None, :] * K_visual_latent_p[:, :, None], dim=-1) / self.temperature
+
+                    # 计算InfoNCE损失
+                    infoNCE_v_loss_pc = -v_logits + torch.logsumexp(torch.cat([v_logits.unsqueeze(2), v_neg_logits.unsqueeze(2)], dim=2), dim=2)
+                    infoNCE_v_loss_pc = infoNCE_v_loss_pc.mean()
+                    infoNCE_t_loss_pc == 0
+                else:
+                    infoNCE_v_loss_pc == 0
+                    infoNCE_t_loss_pc == 0
             else:
                 cuj = self.vtbpr(Us, Js, J_visual_latent, None) #torch.Size(bs)
                 cuk = self.vtbpr(Us, Ks, K_visual_latent, None)
+                infoNCE_v_loss_pc == 0
+                infoNCE_t_loss_pc == 0
 
-            p_ij = visual_ij 
-            p_ik = visual_ik 
+            p_ij = 0.5 * visual_ij 
+            p_ik = 0.5 * visual_ik 
 
             # pred = self.weight_P * p_ij + (1 - self.weight_P) * cuj - (self.weight_P * p_ik + (1 - self.weight_P) * cuk)
             if self.use_weighted_loss:
                 pred = ub_inter_weight * (p_ij - p_ik) + tb_inter_weight * (cuj - cuk)
-
             else:
                 pred = self.weight_P * (p_ij - p_ik) + (1 - self.weight_P) * (cuj - cuk)
 
@@ -369,18 +380,48 @@ class APCL(nn.Module):
                 U_BuK = self.args.uu_w *  Visual_UuK 
                 # U_BuJ = self.w1 *  Visual_UuJ 
                 # U_BuK = self.w1 *  Visual_UuK 
-                pred = pred + U_BuJ - U_BuK
+                pred += U_BuJ - U_BuK
+
+                if self.CL:
+                #infoNCE loss: Bottom in p space and ps space
+                    v2_logits = torch.sum(J_visual_latent_p[:, None, :] * vis_J_u[:, :, None], dim=-1) / self.temperature
+                    # [:, None, :] 将 J 的形状从 [batch, output_dim] 转变为 [batch, 1, output_dim],torch.sum: [batch, output_dim]
+                    v2_neg_logits = torch.sum(J_visual_latent_p[:, None, :] * vis_K_u[:, :, None], dim=-1) / self.temperature
+
+                    # 计算InfoNCE损失
+                    infoNCE_v_loss_ps = -v2_logits + torch.logsumexp(torch.cat([v2_logits.unsqueeze(2), v2_neg_logits.unsqueeze(2)], dim=2), dim=2)
+                    infoNCE_v_loss_ps = infoNCE_v_loss_ps.mean()
+                    infoNCE_t_loss_ps == 0
+
+                else:
+                    infoNCE_v_loss_ps == 0 
+                    infoNCE_t_loss_ps == 0
+
         
         if not self.with_visual and self.with_text:
             if self.args.b_PC:
                 cuj = self.vtbpr(Us, Js, None, J_text_latent_p) #torch.Size(bs)
                 cuk = self.vtbpr(Us, Ks, None, K_text_latent_p)
+                if self.CL:
+                    infoNCE_v_loss_pc == 0
+
+                    t_logits = torch.sum(J_text_latent_p[:, None, :] * J_text_latent[:, :, None], dim=-1) / self.temperature
+                    # 计算v和负样本的点积，然后除以温度
+                    t_neg_logits = torch.sum(J_text_latent_p[:, None, :] * K_text_latent_p[:, :, None], dim=-1) / self.temperature
+                    # 计算InfoNCE损失
+                    infoNCE_t_loss_pc = -t_logits + torch.logsumexp(torch.cat([t_logits.unsqueeze(2), t_neg_logits.unsqueeze(2)], dim=2), dim=2)
+                    infoNCE_t_loss_pc = infoNCE_t_loss_pc.mean()
+                else:
+                    infoNCE_v_loss_pc == 0
+                    infoNCE_t_loss_pc == 0
             else:
                 cuj = self.vtbpr(Us, Js, None, J_text_latent) #torch.Size(bs)
                 cuk = self.vtbpr(Us, Ks, None, K_text_latent)
+                infoNCE_v_loss_pc == 0
+                infoNCE_t_loss_pc == 0
 
-            p_ij = text_ij
-            p_ik = text_ik
+            p_ij = 0.5 * text_ij
+            p_ik = 0.5 * text_ik
 
             # pred = self.weight_P * p_ij + (1 - self.weight_P) * cuj - (self.weight_P * p_ik + (1 - self.weight_P) * cuk)
             if self.use_weighted_loss:
@@ -397,10 +438,24 @@ class APCL(nn.Module):
 
                 pred = pred + U_BuJ - U_BuK
 
+                if self.CL:
+                    infoNCE_v_loss_ps == 0 
+                    t2_logits = torch.sum(J_text_latent_p[:, None, :] * text_J_u[:, :, None], dim=-1) / self.temperature
+                    # 计算v和负样本的点积，然后除以温度
+                    t2_neg_logits = torch.sum(J_text_latent_p[:, None, :] * text_K_u[:, :, None], dim=-1) / self.temperature
+
+                    # 计算InfoNCE损失
+                    infoNCE_t_loss_ps = -t2_logits + torch.logsumexp(torch.cat([t2_logits.unsqueeze(2), t2_neg_logits.unsqueeze(2)], dim=2), dim=2)
+                    infoNCE_t_loss_ps = infoNCE_t_loss_ps.mean()
+                else:
+                    infoNCE_v_loss_ps == 0 
+                    infoNCE_t_loss_ps == 0
+
         if not self.with_visual and not self.with_text: # without visual & text -> no compatibility modeling
             cuj = self.vtbpr(Us, Js, None, None) #torch.Size(bs)
             cuk = self.vtbpr(Us, Ks, None, None)
             pred = cuj - cuk
+            infoNCE_v_loss_pc, infoNCE_t_loss_pc, infoNCE_v_loss_ps, infoNCE_t_loss_ps = 0,0,0,0
                 
         return pred, infoNCE_v_loss_pc, infoNCE_t_loss_pc, infoNCE_v_loss_ps, infoNCE_t_loss_ps
     
@@ -594,7 +649,7 @@ class APCL(nn.Module):
                 else:
                     score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list, J_visual_latent, None, K_visual_latent, None) 
 
-            score_p = visual_ijs_score   
+            score_p = 0.5 * visual_ijs_score   
              
             if self.use_weighted_loss:
                 score = ub_inter_weight * score_p  + tb_inter_weight * score_c
@@ -618,7 +673,7 @@ class APCL(nn.Module):
                 else:
                     score_c = self.vtbpr.infer(bs, candi_num, Us, Js, Ks_list, None, J_text_latent, None, K_text_latent)
 
-            score_p = text_ijks  
+            score_p = 0.5 * text_ijks  
              
             if self.use_weighted_loss:
                 score = ub_inter_weight * score_p  + tb_inter_weight * score_c

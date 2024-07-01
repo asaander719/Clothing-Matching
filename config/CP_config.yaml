@@ -1,0 +1,61 @@
+# root_datapath: "/mnt/juanjuan/cafidata/UI_TransE/data/"
+root_datapath: "/home/asaliao/NiPCBPR/NiPC-BPR/dataset/"
+user_map: "/user_map.json"
+item_map: "/item_map.json"
+visual_features_dict_ori: "/visualfeatures"
+visual_features_tensor: "/visualfeatures_indexedtenseor"
+# item_cates: "/item_cate_set_indexed.json"
+# cate_items: "/cate_item_set_indexed.json"
+# item_cates_ori: "/item_cate_set.json"
+# cate_items_ori: "/cate_item_set.json"
+u_topk_IJs: "/u_topk_Is_Js_dict.json" #"u_topk_ijs_dict.json"
+i_topk_UJs: "/i_topk_Us_Js_dict.json" #"i_topk_ujs_dict.json"
+j_topk_UIs: "/j_topk_Us_Is_dict.json" #"i_topk_ujs_dict.json"
+# u_topk_exist_IJs: "u_exist_topk_ijs_dict.json"
+
+model: "TransMatch"
+wd: 0.00001 #18:04
+lr: 0.001
+batch_size: 2048 #1024
+test_batch_size: 2048 #1024
+evaluation_interval: 1
+max_epoch: 300
+topk: [1] #,5,10] #[10]
+hidden_dim: 32
+wide_evaluate: False
+visual_feature_dim: 2048
+patience: 8
+root_path: /home/asaliao/NiPCBPR/NiPC-BPR #/CP_TransMatch
+
+model_path: /saved/
+result_path: /results/
+performance_path: /performance/
+
+save_results: 0  #save prediction results in evaluation if 1
+save_model: 0  #save the model if 1
+save_freq: 1
+data_status: "use_old" #use_old, prepare_save, prepare_not_save
+neg_num: 100
+
+context_enhance: 0
+use_hard_neg: 0
+context: 1 #considering context-enhanced module if 1
+use_pretrain: 1 # considering pretrained model if 1
+use_Nor: 1  #considering normalization if 1
+topk_u: 2 # topk similar users
+topk_i: 2  # topk similar items
+path: 1  #considering path-enhanced module if 1
+path_enhance: 0 # topk_enhanced path module if 1
+use_selfatt: 0 # considering self attention if 1
+pretrain_layer_num: 3
+neighbor_samples: 4  #number of neighbors to consider in the context-enhanced module
+context_hops: 2 #3 for iqon 3 for else  #number of hops to consider in the context-enhanced module
+neighbor_agg: "mean"
+score_type: "transE" #"mlp"
+agg_param: 0.2 #0.05 for iqon 0.2 for else  #weight of neighbour information to be propagated to the centered node
+max_path_len: 2 #4  #maximum length of paths to consider
+path_num: 2 #4  #number of considered qualified paths(randomly sample)
+path_weight: 1  #0.2 weight of path-based transition modeling
+path_agg: "mean" #"sum" # "mean"
+pretrain_mode: False
+mode: RB #:given top recommend bottoms ], or RT: given bottom while recommenda tops

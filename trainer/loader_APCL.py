@@ -109,7 +109,14 @@ class Test_Data(Dataset):
     def __getitem__(self, idx):
         data_ori = self.data_ori[idx]
         user_idx, top_idx, pos_bottom_idx, neg_bottom_idx = data_ori 
-        neg_js = self.data_ori[idx][3:]
+        if self.args.wide_infer and not self.args.wide_evaluate:
+            # Exclude pos_bottom_idx and sample 256 items from self.popular_bottoms
+            available_bottoms = [item for item in self.popular_bottoms if item != pos_bottom_idx]
+            if len(available_bottoms) < 200:
+                raise ValueError("Not enough items to sample from after excluding pos_bottom_idx")
+            neg_js = random.sample(available_bottoms, 200)
+        elif self.args.wide_evaluate and not self.args.wide_infer:
+            neg_js = self.data_ori[idx][3:]
 
         sim_us = []
         # sim_us = self.u_userscf_dict[str(int(user_idx.numpy()))][:self.args.top_u]
@@ -163,7 +170,7 @@ class Test_Data(Dataset):
         else:
             tb_weight = np.array(self.tb_default_weight)
 
-        if self.args.wide_evaluate:
+        if self.args.wide_evaluate or self.args.wide_infer:
             return user_idx.long(), top_idx.long(), pos_bottom_idx.long(), torch.LongTensor(neg_js), torch.LongTensor(u_pb_his), torch.from_numpy(ub_weight), torch.from_numpy(tb_weight)  
         else:
             return user_idx.long(), top_idx.long(), pos_bottom_idx.long(), neg_bottom_idx.long(), torch.LongTensor(u_pb_his), torch.from_numpy(ub_weight), torch.from_numpy(tb_weight)

@@ -16,7 +16,6 @@ from trainer.loader_APCL import Load_Data, Test_Data
 import csv
 from torch.optim import Adam
 from sys import argv
-import json
 import pdb
 from torch.nn import *
 import random
@@ -92,6 +91,43 @@ def training(device, w_infoNCE, model, train_data_loader, optimizer, epoch):
                                                     AUC_NUM=pos))    
     return loss_scalar/iteration, pos
 
+def case_eva(device, model, val_loader, t_len): #for wide infer
+    logger.info('>>>>>>>>>>>>>>>> Start Case Study >>>>>>>>>>>>>>>>')
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    model.eval()
+    end = time.time()
+    pos = 0
+    preds = []
+    top_scores = []
+    for iteration, aBatch in enumerate(val_loader):
+        aBatch = [x.to(device) for x in aBatch]
+        scores = model.inference(aBatch, train=False)          
+        # pos += float(torch.sum(output.ge(0)))
+        top_score, tops = torch.topk(scores, k=t_len, dim=-1)
+        preds.append(tops)
+        top_scores.append(top_score)
+
+    preds = torch.cat(preds, dim=0)
+    bs = preds.size(0)
+    grd = [0] * bs
+    grd_cnt = [1] * bs
+    metrics = {}
+    for topk in args.k: #args.k:
+        metrics[topk] = {}
+        REC, MRR, NDCG = get_metrics(grd, grd_cnt, preds.cpu().numpy(), topk)
+        metrics[topk]['recall'] = REC
+        metrics[topk]['mrr'] = MRR
+        metrics[topk]['ndcg'] = NDCG
+    # AUC = pos/t_len
+    batch_time.update(time.time() - end)
+    end = time.time()
+    metric_strings = []
+    for m in args.metrics:
+        for k in args.k:
+            metric_strings.append('{}@{}: {:.4f}'.format(m, k, metrics[k][m]))
+    logger.info(', '.join(metric_strings))
+    return metrics, preds #, top_scores
 
 def validate(device, model, val_loader, t_len): #for wide infer
     logger.info('>>>>>>>>>>>>>>>> Start Wide Evaluation >>>>>>>>>>>>>>>>')
@@ -195,12 +231,13 @@ def main():
     # args.device = torch.device("cuda:%s"%args.cuda if torch.cuda.is_available() else "cpu")
     # logger.info(args)
     logger.info("=> creating model ...")
-
-    visual_features_tensor = torch.load(args.visual_features_tensor, map_location= lambda a,b:a.cpu())#torch.Size([142737, 2048])
-    v_zeros = torch.zeros(visual_features_tensor.size(-1)).unsqueeze(0)
-    visual_features_tensor = torch.cat((visual_features_tensor,v_zeros),0)
-    # visual_features_tensor.to(args.device)
-    
+    if args.with_visual:
+        visual_features_tensor = torch.load(args.visual_features_tensor, map_location= lambda a,b:a.cpu())#torch.Size([142737, 2048])
+        v_zeros = torch.zeros(visual_features_tensor.size(-1)).unsqueeze(0)
+        visual_features_tensor = torch.cat((visual_features_tensor,v_zeros),0)
+        # visual_features_tensor.to(args.device)
+    else:
+        visual_features_tensor = None 
     if args.with_text:
         text_features_tensor = torch.load(args.textural_features_tensor, map_location= lambda a,b:a.cpu())#torch.Size([142737, 83])       
         t_zeros = torch.zeros(text_features_tensor.size(-1)).unsqueeze(0)
@@ -222,37 +259,117 @@ def main():
     if args.arch == 'APCL':
         from Models.BPRs.APCL import APCL
         model = APCL(args, embedding_weight, visual_features_tensor, text_features_tensor)
+        if args.dataset == "IQON3000":
+            if args.mode == "RB":
+                args.weight_P = 0.5
+                args.uu_w = 3
+                args.temperature = 5
+            elif args.mode == "RT": 
+                args.weight_P = 0.6
+                args.uu_w = 7
+                args.temperature = 5
+        elif args.dataset == "Polyvore_519":
+            if args.mode == "RB":
+                args.weight_P = 0.9
+                args.uu_w = 10
+                args.temperature = 1
+            elif args.mode == "RT": 
+                args.weight_P = 0.9 
+                args.uu_w = 7
+                args.temperature = 10
+
+    elif args.arch == 'APCL-CL':
+        from Models.BPRs.APCL import APCL
+        args.CL = False
+        if args.dataset == "IQON3000":
+            if args.mode == "RB":
+                args.weight_P = 0.5
+                args.uu_w = 3
+                args.temperature = 5
+            elif args.mode == "RT": 
+                args.weight_P = 0.6
+                args.uu_w = 7
+                args.temperature = 5
+        elif args.dataset == "Polyvore_519":
+            if args.mode == "RB":
+                args.weight_P = 0.9
+                args.uu_w = 10
+                args.temperature = 1
+            elif args.mode == "RT": 
+                args.weight_P = 0.9 
+                args.uu_w = 7
+                args.temperature = 1
+        model = APCL(args, embedding_weight, visual_features_tensor, text_features_tensor)
+    elif args.arch == 'APCL-ATT':
+        from Models.BPRs.APCL import APCL
+        args.att = False
+        if args.dataset == "IQON3000":
+            if args.mode == "RB":
+                args.weight_P = 0.5
+                args.uu_w = 3
+                args.temperature = 5
+            elif args.mode == "RT": 
+                args.weight_P = 0.6
+                args.uu_w = 7
+                args.temperature = 5
+        elif args.dataset == "Polyvore_519":
+            if args.mode == "RB":
+                args.weight_P = 0.9
+                args.uu_w = 10
+                args.temperature = 1
+            elif args.mode == "RT": 
+                args.weight_P = 0.9 
+                args.uu_w = 7
+                args.temperature = 1
+        model = APCL(args, embedding_weight, visual_features_tensor, text_features_tensor)
+    elif args.arch == 'APCL-V':
+        from Models.BPRs.APCL import APCL
+        args.with_visual = False
+        model = APCL(args, embedding_weight, visual_features_tensor, text_features_tensor)
+    elif args.arch == 'APCL-T':
+        from Models.BPRs.APCL import APCL
+        args.with_text = False
+        model = APCL(args, embedding_weight, visual_features_tensor, text_features_tensor)
+    elif args.arch == 'APCL-P':
+        from Models.BPRs.APCL import APCL
+        args.weight_P = 1
+        model = APCL(args, embedding_weight, visual_features_tensor, text_features_tensor)
+    elif args.arch == 'APCL-C':
+        from Models.BPRs.APCL import APCL
+        args.weight_P = 0
+        model = APCL(args, embedding_weight, visual_features_tensor, text_features_tensor)
+    
     elif args.arch == 'NiPCBPR':
         from Models.BPRs.NiPCBPR import NiPCBPR
         model = NiPCBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
     elif args.arch == 'GPBPR':
         from Models.BPRs.GPBPR import GPBPR
-        model = GPBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
         args.with_Nor = False
+        model = GPBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
     elif args.arch == 'BPR':
         from Models.BPRs.GPBPR import GPBPR
-        model = GPBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
         args.with_Nor = False
         args.with_visual = False
         args.with_text = False
         args.weight_P = 0
+        model = GPBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
     elif args.arch == 'VTBPR':
         from Models.BPRs.GPBPR import GPBPR
-        model = GPBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
         args.with_Nor = False
         args.weight_P = 0
+        model = GPBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
     elif args.arch == 'TBPR':
         from Models.BPRs.GPBPR import GPBPR
-        model = GPBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
         args.with_Nor = False
         args.with_visual = False
         args.weight_P = 0
+        model = GPBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
     elif args.arch == 'VBPR':
         from Models.BPRs.GPBPR import GPBPR
-        model = GPBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
         args.with_Nor = False
         args.with_text = False
         args.weight_P = 0
+        model = GPBPR(args, embedding_weight, visual_features_tensor, text_features_tensor)
     elif args.arch == 'CRBPR':
         from Models.BPRs.CRBPR import CRBPR
         model = CRBPR(args, embedding_weight, visual_features_tensor, text_features_tensor) 
@@ -262,7 +379,6 @@ def main():
     
     optimizer = Adam([{'params': model.parameters(),'lr': args.base_lr, "weight_decay": args.wd}])
     # writer = SummaryWriter(args.save_path)
-    logger.info(model)
 
     if args.weight:
         if os.path.isfile(args.weight):         
@@ -302,11 +418,22 @@ def main():
 
     valid_data_ori = load_csv_data(args.valid_data)
     valid_data_ori  = torch.LongTensor(valid_data_ori)
-    valid_data = Test_Data(args, valid_data_ori, user_bottoms_dict, user_tops_dict, top_bottoms_dict, popular_bottoms, popular_tops, 
+    valid_data = Load_Data(args, valid_data_ori, user_bottoms_dict, user_tops_dict, top_bottoms_dict, popular_bottoms, popular_tops, 
         bottom_user_dict, popular_users, ub_inter_weights_dict, tb_inter_weights_dict, ub_default_weight, tb_default_weight)
-    valid_loader = DataLoader(valid_data, batch_size=args.test_batch_size, shuffle=False)
+    valid_loader = DataLoader(valid_data, batch_size=args.batch_size, shuffle=False)
     v_len = len(valid_data_ori)
 
+    if args.case_study:
+        if args.dataset == 'IQON3000':
+            case_study_ori = load_csv_data("dataset/IQON3000/data/case_study.csv")
+        # elif args.dataset == 'Polyvore_519':  
+        #     case_study_ori = load_csv_data("dataset/Polyvore_519/polyvore_U_519_subset_data/case_study.csv")
+            case_study_ori  = torch.LongTensor(case_study_ori)
+            case_study = Test_Data(args, case_study_ori, user_bottoms_dict, user_tops_dict, top_bottoms_dict, popular_bottoms, popular_tops, 
+                bottom_user_dict, popular_users, ub_inter_weights_dict, tb_inter_weights_dict, ub_default_weight, tb_default_weight)
+            c_len = len(case_study_ori)
+            case_study_loader = DataLoader(case_study, batch_size= c_len, shuffle=False)
+    
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print("model para. Num:", params)
@@ -315,6 +442,8 @@ def main():
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')#动态调整学习率
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda epoch: 0.97 ** epoch) 
     logger.info(args)
+    logger.info(model)
+    logger.info(args.train_data)
     for epoch in range(args.start_epoch, args.epochs):
         model.train()
         epoch_log = epoch + 1
@@ -323,24 +452,31 @@ def main():
 
         # writer.add_scalar('loss_train', loss_train, epoch_log)
 
-        # if (epoch_log % args.save_freq == 0):
-        #     args.save_path = './saved/' + args.dataset 
-        #     filename = args.save_path + '/'+ args.arch  + '_' + args.mode  + '_' + str(epoch_log) + '.pth'
-        #     logger.info('Saving checkpoint to: ' + filename)
-        #     torch.save({'epoch': epoch_log, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()}, filename)
-        #     if epoch_log / args.save_freq > 2:
-        #         deletename = args.save_path + '/'+ args.arch + '_' + args.mode  + '_' + str(epoch_log - args.save_freq * 2) + '.pth'
-        #         os.remove(deletename)
-
+        if (epoch_log % args.save_freq == 0):
+            args.save_path = './saved/' + args.dataset 
+            filename = args.save_path + '/'+ args.arch  + '_' + args.mode  + '_' + str(epoch_log) + '.pth'
+            logger.info('Saving checkpoint to: ' + filename)
+            torch.save({'epoch': epoch_log, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()}, filename)
+            if epoch_log / args.save_freq > 2:
+                deletename = args.save_path + '/'+ args.arch + '_' + args.mode  + '_' + str(epoch_log - args.save_freq * 2) + '.pth'
+                os.remove(deletename)
+        print("<<<<<<<<<<<<<<<<< Start Test >>>>>>>>>>>>>>>")
         metrics, preds = validate(args.device, model, test_loader, t_len)
         if args.evaluate:
             args.wide_evaluate = False
+            print("<<<<<<<<<<<<<<<<< Start Validation >>>>>>>>>>>>>>>")
             AUC_v, pos_v = validate_AUC(args.device, model, valid_loader, v_len)
+            
+            # AUC_t, pos_t = validate_AUC(args.device, model, test_loader, t_len)
             # writer.add_scalar('AUC', AUC_v, epoch_log)
             if args.early_stop:
                 early_stopping(AUC_v, model)
                 if early_stopping.early_stop:
                     print("Early stopping")
+                    if args.case_study:
+                        if args.dataset == 'IQON3000':
+                            metrics_c, preds_c = case_eva(args.device, model, case_study_loader, c_len)
+                            print(preds_c)
                     break 
           
 

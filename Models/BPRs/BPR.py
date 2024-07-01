@@ -83,7 +83,7 @@ class BPR(Module):
     
     def wide_infer(self, bs, candi_num, J, K, I): # replace I by U for personalization learning
         J = J.unsqueeze(1) #256,1,512
-        K = K.unsqueeze(0).expand(bs, -1, -1) #1,256,512->256,256,512
+        # K = K.unsqueeze(0).expand(bs, -1, -1) #1,256,512->256,256,512
         Jks = torch.cat([J, K], dim=1) #256,257,512 # dim=1 里面第一个为postive target(1+256)
         I= I.unsqueeze(1).expand(-1, candi_num, -1) # 256,257,512
         return I, Jks
