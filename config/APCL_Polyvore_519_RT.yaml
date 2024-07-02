@@ -1,9 +1,9 @@
 # Given top recommend bottom
 DATA:
   data_root: dataset/Polyvore_519
-  train_data: dataset/Polyvore_519/polyvore_U_519_subset_data/train_sub_data_top.csv
-  valid_data: dataset/Polyvore_519/polyvore_U_519_subset_data/valid_sub_data_top.csv
-  test_data: dataset/Polyvore_519/polyvore_U_519_subset_data/test_sub_data_top.csv
+  train_data: dataset/Polyvore_519/polyvore_U_519_data/train_data_RT.csv #dataset/Polyvore_519/polyvore_U_519_subset_data/train_sub_data_top.csv
+  valid_data: dataset/Polyvore_519/polyvore_U_519_data/valid_data_RT.csv #dataset/Polyvore_519/polyvore_U_519_subset_data/valid_sub_data_top.csv
+  test_data: dataset/Polyvore_519/polyvore_U_519_data/test_data_RT.csv #dataset/Polyvore_519/polyvore_U_519_subset_data/test_sub_data_top.csv
   uid_dic: dataset/Polyvore_519/polyvore_U_519_data/uid_dic  #user_indix dict
   user_map: dataset/Polyvore_519/polyvore_U_519_data/user_map  #user id_index map
   item_map: dataset/Polyvore_519/polyvore_U_519_data/item_map  #item id_index map, including bottom and top
@@ -60,7 +60,8 @@ TRAIN:
   temperature: 0.1 
   w_infoNCE: 0.05 #weight of infoNCE LOSS
   mode: 'RB' #given top, recommend bottom "rt: given bottom, recommend top"
-  wide_evaluate: True
+  wide_evaluate: False
+  CL: True
 
   UC: True
   GC: True
@@ -68,6 +69,8 @@ TRAIN:
   GC_v_w: 0.5
   UC_w: 3
   GC_w: 2
+  case_study: 0
+  wide_infer: 1
 
 Distributed:
   dist_url: tcp://158.132.123.124:6080
