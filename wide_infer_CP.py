@@ -1,22 +1,16 @@
 import argparse
 import os
-import pdb
-import shutil
 from datetime import datetime
 import numpy as np
 import pandas as pd
 import torch
 import yaml
-from scipy.sparse import csr_matrix
-from torch.optim import Adam
 from trainer.utility import Dataset
 from Models.graph.TransMatch_ori import TransMatch
 from tool.metrics import *
 
-
 import time
 import logging
-import torch.nn.functional as F
 from util import config
 from tool.util import * #AverageMeter, poly_learning_rate, find_free_port, EarlyStopping
 import csv
@@ -27,7 +21,6 @@ import random
 from collections import defaultdict
 from tqdm import tqdm
 from config.configurator import parse_configure
-
 
 # def evaluating(model, testData, device, topks):
 #     model.eval()
@@ -68,7 +61,8 @@ def WIDE_INFER(model, testData, device, topks): #for wide infer
             itemid= torch.cat([aBatch[2].unsqueeze(1), aBatch[3]], dim=-1)
             # scores = model.inference(aBatch, train=False)      
             # pos += float(torch.sum(output.ge(0)))
-            scores = model.inference(aBatch)#.detach().cpu()
+            # scores = model.inference(aBatch)#.detach().cpu()
+            scores = model(aBatch)#!!!把模型的inference和forward互换！！
             # print(scores.size()) #torch.Size([2048, 21])
             top_score, tops = torch.topk(scores, k=scores.size(1), dim=-1) #[ 1.3721,  1.2723,  1.2610,  ..., -0.6292, -0.6326, -0.7522], [ 40, 175, 237,  ..., 203,  45, 236],
             preds.append(tops)
@@ -175,7 +169,10 @@ def Train_Eval(conf):
         print("=> loaded checkpoint '{}'".format(model_path))
     else:
         raise RuntimeError("=> no checkpoint found at '{}'".format(model_path))
-   
+    
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = nn.DataParallel(model)
     model.to(conf['device'])
    
     for test_setting, test_loader in zip(dataset.test_setting_list,
@@ -206,7 +203,7 @@ def Train_Eval(conf):
                     break
             print('%s' % (test_setting[:-5]), curr_time, result_str)
             df = pd.DataFrame(item_ids.cpu().numpy())
-            csv_file_path = "saved/{}/{}/{}/_infer_top100_0701.csv".format(conf['dataset'], conf['model'], conf['mode'])  
+            csv_file_path = "saved/{}/{}/{}/_infer_top100_0702.csv".format(conf['dataset'], conf['model'], conf['mode'])  
             df.to_csv(csv_file_path, index=False, header=False)      
 
 def get_cmd():
@@ -254,14 +251,15 @@ if __name__ == '__main__':
     conf['device'] = torch.device(
         'cuda:%s' % conf['gpu'] if torch.cuda.is_available() else 'cpu')
 
-    if conf['wide_evaluate']:
-        conf['test_batch_size'] =1
+    conf['wide_evaluate']=True
+    conf['test_batch_size'] =1
 
     conf['performance_path'] += (conf['dataset'] + '/')
     conf['result_path'] += (conf['dataset'] + '/')
     conf['model_path'] += (conf['dataset'] + '/')
     conf['wide_evaluate'] = True
-    conf['topk'] = [5,10,20]
-    conf['neg_num'] = 20
+    conf['topk'] = [5,10,20, 100]
+    conf['neg_num'] = 99
+    conf['mode'] = "RT"
     print(conf)
     Train_Eval(conf)
