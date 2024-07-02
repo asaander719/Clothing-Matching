@@ -8,9 +8,9 @@ visual_features_tensor: "/visualfeatures_indexedtenseor"
 # cate_items: "/cate_item_set_indexed.json"
 # item_cates_ori: "/item_cate_set.json"
 # cate_items_ori: "/cate_item_set.json"
-u_topk_IJs: "/u_topk_Is_Js_dict.json" #"u_topk_ijs_dict.json"
-i_topk_UJs: "/i_topk_Us_Js_dict.json" #"i_topk_ujs_dict.json"
-j_topk_UIs: "/j_topk_Us_Is_dict.json" #"i_topk_ujs_dict.json"
+u_topk_IJs: "TransE_u_topk_Is_Js_dict.json" #"u_topk_ijs_dict.json"
+i_topk_UJs: "TransE_i_topk_Us_Js_dict.json" #"i_topk_ujs_dict.json"
+j_topk_UIs: "TransE_j_topk_Us_Is_dict.json" #"i_topk_ujs_dict.json"
 # u_topk_exist_IJs: "u_exist_topk_ijs_dict.json"
 
 model: "TransMatch"
@@ -22,16 +22,16 @@ evaluation_interval: 1
 max_epoch: 300
 topk: [1] #,5,10] #[10]
 hidden_dim: 32
-wide_evaluate: False
+wide_evaluate: False #True
 visual_feature_dim: 2048
-patience: 8
+patience: 12
 root_path: /home/asaliao/NiPCBPR/NiPC-BPR #/CP_TransMatch
 
 model_path: /saved/
 result_path: /results/
 performance_path: /performance/
 
-save_results: 0  #save prediction results in evaluation if 1
+save_results: 1  #save prediction results in evaluation if 1
 save_model: 0  #save the model if 1
 save_freq: 1
 data_status: "use_old" #use_old, prepare_save, prepare_not_save

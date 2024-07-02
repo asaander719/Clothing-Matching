@@ -188,13 +188,13 @@ def get_U_topk_IJs_tensor(u_topk_IJs):
     return stacked_tensor
 
 
-def get_fake_triplets(conf, path, topk_u, topk_i, u_ijs, i_ujs, j_uis):
+def get_fake_triplets(train_data, path, topk_u, topk_i, u_ijs, i_ujs, j_uis):
     fake_triplets = []
     for key, value in u_ijs.items():
         for i in range(topk_u):
             triplet = tuple([int(key), value[0][i], value[1][i]])  # u, i, j
             fake_triplets.append(triplet)
-    train_df = pd.read_csv(conf['train_data'], header=None).astype('int')
+    train_df = pd.read_csv(train_data, header=None).astype('int')
     train_df.columns = ['user_idx', 'top_idx', 'pos_bottom_idx', 'neg_bottom_idx']
     unique_fake_triplets = train_df[['user_idx', 'top_idx', 'pos_bottom_idx']].drop_duplicates().values.tolist()
     unique_neg_triplets = train_df[['user_idx', 'top_idx', 'neg_bottom_idx']].drop_duplicates().values.tolist()   
@@ -222,7 +222,7 @@ def prepare_data(conf):
             conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/train_indexed_top.csv'
             conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/valid_indexed_top.csv'
             conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/test_indexed_top.csv'
-        print(conf['train_data'])
+            print(conf['train_data'])
         train_data = load_csv_data(conf['train_data'] )
         test_data = load_csv_data(conf['valid_data'])
         val_data = load_csv_data(conf['test_data'])
@@ -238,7 +238,7 @@ def prepare_data(conf):
             conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data.csv' #'/polyvore_U_519_subset_data/train_sub_data.csv'
             conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data.csv' #'/polyvore_U_519_subset_data/valid_sub_data.csv'
             conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data.csv' #'/polyvore_U_519_subset_data/test_sub_data.csv'
-        elif conf['mode'] == 'RT':
+        if conf['mode'] == 'RT':
             conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data_RT.csv' 
             conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data_RT.csv' 
             conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data_RT.csv' 
@@ -264,7 +264,7 @@ def prepare_data(conf):
                     for row in new_test_RT:
                         writer.writerow(row)
 
-        print(conf['train_data'])
+        # print(conf['train_data'])
         train_data = load_csv_data(conf['train_data'])
         test_data = load_csv_data(conf['valid_data'])
         val_data = load_csv_data(conf['test_data'])
@@ -291,7 +291,7 @@ def prepare_data(conf):
         return new_train, new_test, new_val, visual_features, user_map, item_map , item_cates, cate_items
     all_bottoms, all_tops = all_candidates(conf['train_data'], conf['test_data'], conf['valid_data'])
     item_cates = {"0": all_bottoms}
-    return train_data, test_data, val_data, visual_features, user_map, item_map, all_bottoms, all_tops, item_cates
+    return conf['train_data'], conf['valid_data'],  conf['test_data'], train_data, test_data, val_data, visual_features, user_map, item_map, all_bottoms, all_tops, item_cates
 
 
 def load_cache(conf):
@@ -382,6 +382,29 @@ class Dataset():
         if not os.path.exists(dataconf['new_datapath']):
             os.makedirs(dataconf['new_datapath'])
 
+        # if conf['dataset'] == 'IQON3000':
+        #     if conf['mode'] == 'RB':
+        #         self.conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/train_indexed.csv'
+        #         self.conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/valid_indexed.csv'
+        #         self.conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/test_indexed.csv'
+        #     elif conf['mode'] == 'RT':
+        #         self.conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/train_indexed_top.csv'
+        #         self.conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/valid_indexed_top.csv'
+        #         self.conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/test_indexed_top.csv'
+        
+        # elif conf['dataset'] == 'Polyvore_519': #original ,not subsampled 
+        #     if conf['mode'] == 'RB':
+        #         self.conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data.csv' #'/polyvore_U_519_subset_data/train_sub_data.csv'
+        #         self.conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data.csv' #'/polyvore_U_519_subset_data/valid_sub_data.csv'
+        #         self.conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data.csv' #'/polyvore_U_519_subset_data/test_sub_data.csv'
+        #     elif conf['mode'] == 'RT':
+        #         self.conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data_RT.csv' 
+        #         self.conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data_RT.csv' 
+        #         self.conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data_RT.csv' 
+        #         print(os.path.exists(conf['train_data']))
+        
+        # print(self.conf['train_data'])
+
         # if conf['data_status'] == 'prepare_save':
         #     dataconf['save_new_data'] = 1
         #     train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.item_cates, self.cate_items = prepare_data(dataconf)
@@ -391,13 +414,14 @@ class Dataset():
         # elif conf['data_status'] == 'use_old':
         #     train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.item_cates, self.cate_items = load_cache(dataconf)
 
-        train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.all_bottoms, self.all_tops, self.item_cates = prepare_data(dataconf)
+        conf['train_data'], conf['valid_data'],  conf['test_data'],train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.all_bottoms, self.all_tops, self.item_cates = prepare_data(dataconf)
         
 
         if conf['wide_evaluate']:
+            print(conf['test_data'])
             try:
                 test_data_L = np.load(dataconf['new_datapath'] +'/test_data_%d.npy' % (self.conf['neg_num']))
-                print(test_data_L.shpae())
+                # print(test_data_L.shpae())
                 val_data_L = np.load(dataconf['new_datapath'] +'/val_data_%d.npy' % (self.conf['neg_num']))
                 print('test and validation data for top %d evaluation loaded' %self.conf['topk'][0])
             except Exception:
@@ -413,7 +437,7 @@ class Dataset():
         self.new_users = set(set(self.user_map.values()) - self.train_users)
 
         if conf['model'] == 'TransMatch':
-            if conf['path_enhance']:
+            if conf['path_enhance'] or conf['context_enhance']:
                 u_IJS_path = dataconf['new_datapath'] + dataconf['u_topk_IJs']
                 i_UJS_path = dataconf['new_datapath'] + dataconf['i_topk_UJs']
                 j_UIS_path = dataconf['new_datapath'] + dataconf['j_topk_UIs']
@@ -429,7 +453,7 @@ class Dataset():
                 if os.path.exists(fake_triplets_path):
                     self.unique_fake_triplets = load_csv_data(fake_triplets_path)
                 else:
-                    unique_fake_triplets = get_fake_triplets(fake_triplets_path, self.conf['topk_u'], self.conf['topk_i'], u_topk_IJs, i_topk_UJs, j_topk_UIs)
+                    unique_fake_triplets = get_fake_triplets(conf['train_data'], fake_triplets_path, self.conf['topk_u'], self.conf['topk_i'], u_topk_IJs, i_topk_UJs, j_topk_UIs)
                     self.unique_fake_triplets = load_csv_data(fake_triplets_path)
                 entity2edge_set, edge2entities, edge2relation, e2re, relation2entity_set = build_kg_topk(self.unique_fake_triplets)
             else:
@@ -611,10 +635,14 @@ class Dataset():
                 self.wide_valdata,
                 batch_size=self.conf['test_batch_size'],
                 shuffle=False)
-            self.test_loader_list += [
+            # self.test_loader_list += [
+            #     self.wide_test_loader, self.wide_val_loader
+            # ]
+            # self.test_setting_list += ['test_topk', 'val_topk']
+            self.test_loader_list = [
                 self.wide_test_loader, self.wide_val_loader
             ]
-            self.test_setting_list += ['test_topk', 'val_topk']
+            self.test_setting_list = ['test_topk', 'val_topk']
 
     def get_train_user_items(self, train_data):
         train_items = set()

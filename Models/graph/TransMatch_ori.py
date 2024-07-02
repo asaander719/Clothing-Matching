@@ -448,6 +448,7 @@ class TransMatch(Module):
         Us = Us.unsqueeze(1).expand(-1, j_num) #bs, j_num
         Is = Is.unsqueeze(1).expand(-1, j_num)
         J_bias_l = self.i_bias_l(J_list)
+        # print(Ks.size(), J_list.size(), j_num, J_bias_l.size())
         
         if self.use_context:
             self.entity_pairs = torch.cat([Is.unsqueeze(-1), J_list.unsqueeze(-1)], dim=-1) # bs, j_num, 2

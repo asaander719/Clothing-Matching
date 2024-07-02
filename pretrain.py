@@ -12,7 +12,7 @@ from torch.optim import Adam
 
 from trainer.utility import Dataset
 from Models.graph.TransE import TransE
-from Models.graph.TransMatch_pretrain import TransMatch
+from Models.graph.TransMatch_pretrain import TransMatch_EX
 from Models.graph.TransR import TransR
 from tool.metrics import *
 from tool.util import * 
@@ -34,7 +34,7 @@ def evaluating(model, testData, device, topks):
     for iteration, aBatch in enumerate(testData):
         aBatch = [x.to(device) for x in aBatch]
         scores = model.inference(aBatch).detach().cpu()
-        _, tops = torch.topk(scores, k=[-1], dim=-1)
+        _, tops = torch.topk(scores, k=topks[-1], dim=-1)
         preds.append(tops)
 
     preds = torch.cat(preds, dim=0)
@@ -82,7 +82,7 @@ def Train_Eval(conf):
             u_topk_IJs = dataset.u_topk_IJs.to(conf['device'])
             i_topk_UJs = dataset.i_topk_UJs.to(conf['device'])
             j_topk_UIs = dataset.j_topk_UIs.to(conf['device'])
-            model = TransMatch(conf, u_topk_IJs, i_topk_UJs, j_topk_UIs,
+            model = TransMatch_EX(conf, u_topk_IJs, i_topk_UJs, j_topk_UIs,
                                dataset.neighbor_params,
                                dataset.visual_features.to(conf['device']))
     model.to(conf['device'])
@@ -306,14 +306,19 @@ if __name__ == '__main__':
     if conf['dataset'] == "iqon_s":
         pretrain_model_file = f"{conf['pretrained_model']}.pth.tar"
     elif conf['dataset'] == "Polyvore_519":
-        pretrain_model_file = ""
+        if conf['mode'] == 'RB':
+            pretrain_model_file = f"{conf['pretrained_model']}.pth.tar" #0.7484 #"epoch_118_p0c0_RB_AUC_0.7645.pth"
     elif conf['dataset'] == "IQON3000":
-        pretrain_model_file = ""
+        if conf['mode'] == 'RB':
+            pretrain_model_file = f"{conf['pretrained_model']}.pth.tar" # 0.8765 "epoch_77_p0c0_RB_AUC_0.8607.pth"
 
-    pretrain_model_dir = './saved/' + conf['dataset'] + '/pretrained_model/'
+    pretrain_model_dir = 'saved/' + conf['dataset'] + '/pretrained_model/'
     pretrain_model_path = os.path.join(pretrain_model_dir, pretrain_model_file)
-
+    print("pretrain_model_path:", pretrain_model_path)
+    
     if os.path.exists(pretrain_model_path):
+        conf['pretrain_mode'] = False
+        print("loading pretrained model from:", pretrain_model_path)
         conf['batch_size'] = 1024
         conf['test_batch_size'] = 1024
 

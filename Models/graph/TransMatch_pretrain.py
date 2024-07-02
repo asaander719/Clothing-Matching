@@ -11,6 +11,7 @@ from torch.optim import Adam
 
 from Models.graph.TransE import TransE
 from Models.graph.TransR import TransR
+from Models.graph.TransMatch_ori import TransMatch
 
 
 def bpr_loss(pos_score, neg_score):
@@ -147,7 +148,7 @@ class Attention(nn.Module):
         return weighted_sum
 
 
-class TransMatch(nn.Module):
+class TransMatch_EX(nn.Module):
 
     def __init__(self,
                  conf,
@@ -204,14 +205,16 @@ class TransMatch(nn.Module):
         # self.pretrain_model_dir = 'model/iqon_s/pretrained_model/'
 
         if conf['dataset'] == "iqon_s":
-            self.pretrain_model_file = f"{conf['pretrained_model']}.pth.tar"
+            pretrain_model_file = f"{conf['pretrained_model']}.pth.tar"
         elif conf['dataset'] == "Polyvore_519":
-            self.pretrain_model_file = ""
+            if conf['mode'] == 'RB':
+                pretrain_model_file = f"{conf['pretrained_model']}.pth.tar" #"epoch_118_p0c0_RB_AUC_0.7645.pth"
         elif conf['dataset'] == "IQON3000":
-            self.pretrain_model_file = ""
+            if conf['mode'] == 'RB':
+                pretrain_model_file = f"{conf['pretrained_model']}.pth.tar" #"epoch_77_p0c0_RB_AUC_0.8607.pth"
 
         pretrain_model_dir = './saved/' + conf['dataset'] + '/pretrained_model/'
-        self.pretrain_model_path = os.path.join(pretrain_model_dir, self.pretrain_model_file)
+        self.pretrain_model_path = os.path.join(pretrain_model_dir, pretrain_model_file)
 
 
         # self.pretrain_model_path = os.path.join(self.pretrain_model_dir, self.pretrain_model_file)
@@ -222,10 +225,20 @@ class TransMatch(nn.Module):
             elif self.pretrained_model == 'TransE':
                 self.transe = TransE(conf,
                                      visual_features=self.visual_features)
+            # elif self.pretrained_model == 'TransMatch_ori':
+                # self.transe = TransMatch(conf, neighbor_params = self.neighbor_params,
+                #                      visual_features=self.visual_features)
 
         elif os.path.exists(self.pretrain_model_path) and self.use_pretrain:
+            # if self.pretrained_model == 'TransE':
+            #     self.transe = TransMatch(conf, neighbor_params = self.neighbor_params,
+            #                          visual_features=self.visual_features)
+            # checkpoint = torch.load(self.pretrain_model_path)
+            # self.transe.load_state_dict(checkpoint['state_dict'], strict=False)
+
             self.transe = torch.load(self.pretrain_model_path)
-            print('Continuing training with existing model...')        
+            print('Continuing training with existing model...')   
+            print(self.transe)     
 
         # self.all_bottoms_id = self._get_all_bottoms_id()
         self.margin = nn.Parameter(torch.tensor(0.7))
@@ -944,11 +957,10 @@ class TransMatch(nn.Module):
                                 batch_user_embeddings, att_model_u):
         topk_Is = self.u_topk_IJs[Us]  # bs, 2, topk_u
         topk_Is = topk_Is[:, 0, :self.topk_u]  # bs, topk_u
-        topk_Is_embeddings = item_embeddings[
-            topk_Is]  #bs, topk_u, hd # torch.Size([1024, 3, 32])
+        topk_Is_embeddings = item_embeddings[topk_Is.long()]  #bs, topk_u, hd # torch.Size([1024, 3, 32])
         topk_Js = self.u_topk_IJs[Us]
         topk_Js = topk_Js[:, 1, :self.topk_u]
-        topk_Js_embeddings = item_embeddings[topk_Js]  #bs, topk_u, hd
+        topk_Js_embeddings = item_embeddings[topk_Js.long()]  #bs, topk_u, hd
         combined_tensor = torch.cat((topk_Is_embeddings, topk_Js_embeddings),
                                     dim=1)  #bs, topk_u*2, hd
         # aggregated_embeddings = att_model_u(batch_user_embeddings, combined_tensor)
@@ -964,7 +976,7 @@ class TransMatch(nn.Module):
         topk_Us_embeddings = self.transe.u_embeddings_l(
             topk_Us)  #bs, topk_u, hd
         topk_Js = topk_UJs[:, 1, :self.topk_i]
-        topk_Js_embeddings = item_embeddings(topk_Js)  #bs, topk_u, hd
+        topk_Js_embeddings = item_embeddings(topk_Js.long())  #bs, topk_u, hd
         combined_tensor = torch.cat((topk_Us_embeddings, topk_Js_embeddings),
                                     dim=1)  #bs, topk_u*2, hd
         # aggregated_embeddings = att_model_u(batch_Is_embeddings, combined_tensor)
@@ -980,7 +992,7 @@ class TransMatch(nn.Module):
         topk_Us_embeddings = self.transe.u_embeddings_v(
             topk_Us)  #bs, topk_u, hd
         topk_Js = topk_UJs[:, 1, :self.topk_i]
-        topk_Js_embeddings = item_embeddings[topk_Js]  #bs, topk_u, hd
+        topk_Js_embeddings = item_embeddings[topk_Js.long()]  #bs, topk_u, hd
         combined_tensor = torch.cat((topk_Us_embeddings, topk_Js_embeddings),
                                     dim=1)  #bs, topk_u*2, hd
         # aggregated_embeddings = att_model_u(batch_Is_embeddings, combined_tensor)
