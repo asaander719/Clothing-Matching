@@ -34,12 +34,12 @@ The code is built on Pytorch library. Run the following code to satisfy the requ
 
 
 ## For Model -- NiPCBPR
-# Train NiPCBPR
+### Train NiPCBPR
 To train NiPCBPR with both visual and textual features, run the following script:
 
 `python run_NiPCBPR.py`
 
-# Evaluate
+### Evaluate
 To evaluate the AUC of the well-trained model with default format (Given top and recommend bottom in Polyvore dataset):
 
 `python test.py`
@@ -47,26 +47,26 @@ To evaluate the AUC of the well-trained model with default format (Given top and
 Or you can modify the corresponding path name.
 
 ## For model -- APCL
-# Train APCL
+### Train APCL
 `python run_APCL_Polyvore_RB.py --arch APCL --dataset Polyvore_519 --batch_size 128 --test_batch_size 128 --mode RB --patience 20`
 
 where RB refers to given a top and recommend bottom, and RT refers to given a bottom and recommend top.
 
 ## For model -- CP_TransMatch
-# Train CP_TransMatch
+### Train CP_TransMatch
 `python run_CP.py -d=Polyvore_519-g=0 -p=1 -c=1 -s=1 -m=RB`
 
-## For model -- CP_TransMatch_EX
+### For model -- CP_TransMatch_EX
 This is the extend version of CP_TransMatch.
 
-# Pretrain TransE/TransR: 
+### Pretrain TransE/TransR: 
 change the pretrain model name to TransE/TransR, and run:
 `python pretrain.py -d=Polyvore_519 -m=RB`
 
-# to generate fake topk <u,i,j> triplets:
+### to generate fake topk <u,i,j> triplets:
 `python get_topk_pairs.py -d=Polyvore_519 -m=RB`
 
-# Train CP_TransMatch_EX
+### Train CP_TransMatch_EX
 `python pretrain.py -d=Polyvore_519 -g=3 -p=1 -c=1 -s=1 -m=RB -PE=0 -CE=1`
 
 ## Find the topk inference results for VBPR, GPBPR, TransMatch at **./topk_inference/**
