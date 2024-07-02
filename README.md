@@ -1,14 +1,15 @@
 <!-- # NiPC-BPR -->
-<img src = "logo.png">
+<!-- <img src = "logo.png"> -->
 
 ## Introduction
-This is the official implementation for our paper **Recommendation of Mix-and-Match Clothing by Modeling Indirect Personal Compatibility**, accepted by **ICMR'23**.<br/> [Paper](https://dl.acm.org/doi/abs/10.1145/3591106.3592224) 
+This is a implementation for personalized clothing matching task: given a specific clothing and recommend a product that go well with the given one.
+<!-- our paper **Recommendation of Mix-and-Match Clothing by Modeling Indirect Personal Compatibility**, accepted by **ICMR'23**.<br/> [Paper](https://dl.acm.org/doi/abs/10.1145/3591106.3592224)  -->
 ***
 
-> **Abstract:** Fashion recommendation considers both product similarity and compatibility, and has drawn increasing research interest. It is a challenging task because it often needs to use information from different sources, such as visual content or textual descriptions for the prediction of user preferences. In terms of complementary recommendation, existing approaches were dedicated to modeling either product compatibility or users’ personalization in a direct and decoupled manner, yet overlooked additional relations hidden within historical user-product interactions. In this paper, we propose a Normalized indirect Personal Compatibility modeling scheme based on Bayesian Personalized Ranking (NiPC-BPR) for mix-and-match clothing recommendations. We exploit direct and indirect personalization and compatibility relations from the user and product interactions, and effectively integrate various multi-modal data. Extensive experimental results on two benchmark datasets show that our method outperforms other methods by large margins.
+<!-- > **Abstract:** Fashion recommendation considers both product similarity and compatibility, and has drawn increasing research interest. It is a challenging task because it often needs to use information from different sources, such as visual content or textual descriptions for the prediction of user preferences. In terms of complementary recommendation, existing approaches were dedicated to modeling either product compatibility or users’ personalization in a direct and decoupled manner, yet overlooked additional relations hidden within historical user-product interactions. In this paper, we propose a Normalized indirect Personal Compatibility modeling scheme based on Bayesian Personalized Ranking (NiPC-BPR) for mix-and-match clothing recommendations. We exploit direct and indirect personalization and compatibility relations from the user and product interactions, and effectively integrate various multi-modal data. Extensive experimental results on two benchmark datasets show that our method outperforms other methods by large margins. -->
 
 <!-- <img src="https://d3i71xaburhd42.cloudfront.net/d0a6ad4f433422d4547775cbf5b1121362951f87/250px/3-Figure2-1.png"> -->
-<img src = "framework.png">
+<!-- <img src = "framework.png"> -->
 
 
 ## Requirements
@@ -31,25 +32,52 @@ The code is built on Pytorch library. Run the following code to satisfy the requ
 
   [Polyvore-U-519](https://stduestceducn-my.sharepoint.com/personal/zhilu_std_uestc_edu_cn/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fzhilu%5Fstd%5Fuestc%5Fedu%5Fcn%2FDocuments%2Fpolyvore&ga=1)
 
-## Train NiPCBPR
+
+## For Model -- NiPCBPR
+# Train NiPCBPR
 To train NiPCBPR with both visual and textual features, run the following script:
 
 `python run_NiPCBPR.py`
 
-## Evaluate
+# Evaluate
 To evaluate the AUC of the well-trained model with default format (Given top and recommend bottom in Polyvore dataset):
 
 `python test.py`
 
 Or you can modify the corresponding path name.
 
+## For model -- APCL
+# Train APCL
+`python run_APCL_Polyvore_RB.py --arch APCL --dataset Polyvore_519 --batch_size 128 --test_batch_size 128 --mode RB --patience 20`
+
+where RB refers to given a top and recommend bottom, and RT refers to given a bottom and recommend top.
+
+## For model -- CP_TransMatch
+# Train CP_TransMatch
+`python run_CP.py -d=Polyvore_519-g=0 -p=1 -c=1 -s=1 -m=RB`
+
+## For model -- CP_TransMatch_EX
+This is the extend version of CP_TransMatch.
+
+# Pretrain TransE/TransR: 
+change the pretrain model name to TransE/TransR, and run:
+`python pretrain.py -d=Polyvore_519 -m=RB`
+
+# to generate fake topk <u,i,j> triplets:
+`python get_topk_pairs.py -d=Polyvore_519 -m=RB`
+
+# Train CP_TransMatch_EX
+`python pretrain.py -d=Polyvore_519 -g=3 -p=1 -c=1 -s=1 -m=RB -PE=0 -CE=1`
+
+## Find the topk inference results for VBPR, GPBPR, TransMatch at **./topk_inference/**
+
 ## Tips
 - Note that we conduct our experiment under two different setting with two datasets, and you can modify the configurations in **yaml** files in **./config/** folder, where **_RB** refers to Given TOP and Recommend Bottom and **_RT** refers to Given Bottom and Recommend Top.
-- The model code is at `Models/BPRs/NiPCBPR.py`.
+- The model code is at `Models/`.
 - In the experiment titled 'Performance Comparison on Two Datasets in Terms of AUC, Under Different Product Interaction Frequencies,' execution is enabled by setting the 'f_test' parameter to 'True' in the yaml configuration files. 
 
 ***
-
+<!-- 
 ## Citation
 If you find our work helpful, please kindly cite our research paper:
 ```
@@ -60,6 +88,6 @@ If you find our work helpful, please kindly cite our research paper:
   pages={560--564},
   year={2023}
 }
-```
+``` -->
 
  
