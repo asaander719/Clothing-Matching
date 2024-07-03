@@ -29,7 +29,7 @@ def build_kg(train_data):
     return entity2edge_set, edge2entities, edge2relation, e2re, relation2entity_set
 
 
-def build_kg_topk(fake_triplets):
+def build_kg_topk(fake_triplets): #here fake_triplets include training samples + fake ones
     # train_data[t] = u, i, j (r, h, t)
     edge2entities = []
     edge2relation = []
@@ -124,7 +124,7 @@ def get_h2t_topk(fake_triplets, test_triplets, val_triplets):
 #     ht2paths = {}
 #     for i, (head, tails) in enumerate(head2tails):
 #         #     for head, tails in head2tails.items():
-#         ht2paths.update(bfs(head, tails, e2re, max_path_len, item_cate))
+#         ht2paths.update(bfs(head, tails, e2re, max_path_len, item_cate)) #cate+item for iqon_s dataset
 #     return ht2paths
 
 def count_all_paths(inputs):
@@ -132,7 +132,7 @@ def count_all_paths(inputs):
     ht2paths = {}
     for i, (head, tails) in enumerate(head2tails):
         #     for head, tails in head2tails.items():
-        ht2paths.update(bfs(head, tails, e2re, max_path_len))
+        ht2paths.update(bfs(head, tails, e2re, max_path_len)) # forpolyvore and iqon3000
     return ht2paths
 
 def bfs(head, tails, e2re, max_path_len):

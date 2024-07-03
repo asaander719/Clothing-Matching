@@ -15,6 +15,8 @@ from PIL import Image
 from torchvision import transforms
 from trainer.loader_CP import *
 from tool.kg_utils import *
+import subprocess
+import sys
 
 
 def load_csv_data(train_data_path):
@@ -188,9 +190,9 @@ def get_U_topk_IJs_tensor(u_topk_IJs):
     return stacked_tensor
 
 
-def get_fake_triplets(train_data, path, topk_u, topk_i, u_ijs, i_ujs, j_uis):
+def get_fake_triplets(train_data, path, topk_u, topk_i, u_ijs, i_ujs, j_uis):# include training samples + fake ones 
     fake_triplets = []
-    for key, value in u_ijs.items():
+    for key, value in u_ijs.items(): # 目前只使用u 的topk <is,js>paris, 注意RT时候ij指代的种类是互换的关系，修改路径,不修改代码
         for i in range(topk_u):
             triplet = tuple([int(key), value[0][i], value[1][i]])  # u, i, j
             fake_triplets.append(triplet)
@@ -214,15 +216,11 @@ def get_fake_triplets(train_data, path, topk_u, topk_i, u_ijs, i_ujs, j_uis):
 def prepare_data(conf):
     print('preparing data ...')
     if conf['dataset'] == 'IQON3000':
-        if conf['mode'] == 'RB':
-            conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/train_indexed.csv'
-            conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/valid_indexed.csv'
-            conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/test_indexed.csv'
-        elif conf['mode'] == 'RT':
-            conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/train_indexed_top.csv'
-            conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/valid_indexed_top.csv'
-            conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/test_indexed_top.csv'
-            print(conf['train_data'])
+        conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/' + conf['mode'] + '/train_indexed.csv'
+        conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/' + conf['mode'] + '/valid_indexed.csv'
+        conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/' + conf['mode'] + '/test_indexed.csv'
+        print("train data path:", conf['train_data'])
+
         train_data = load_csv_data(conf['train_data'] )
         test_data = load_csv_data(conf['valid_data'])
         val_data = load_csv_data(conf['test_data'])
@@ -234,24 +232,20 @@ def prepare_data(conf):
         # visual_features = reindex_iqon_features(visual_features_ori, item_map, conf['device'])
 
     elif conf['dataset'] == 'Polyvore_519': #original ,not subsampled 
-        if conf['mode'] == 'RB':
-            conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data.csv' #'/polyvore_U_519_subset_data/train_sub_data.csv'
-            conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data.csv' #'/polyvore_U_519_subset_data/valid_sub_data.csv'
-            conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data.csv' #'/polyvore_U_519_subset_data/test_sub_data.csv'
-        if conf['mode'] == 'RT':
-            conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data_RT.csv' 
-            conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data_RT.csv' 
-            conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data_RT.csv' 
-            print(os.path.exists(conf['train_data']))
-            if not os.path.exists(conf['train_data']):
-                train_path_RB = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data.csv' 
-                val_path_RB = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data.csv'
-                test_path_RB = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data.csv'
+        conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/' + conf['mode'] + '/train_data.csv' 
+        conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/' + conf['mode'] + '/valid_data.csv' 
+        conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/' + conf['mode'] + '/test_data.csv' 
+        # print(os.path.exists(conf['train_data']))
+        if not os.path.exists(conf['train_data']):
+            if conf['mode'] == 'RT':
+                train_path_RB = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/RB/train_data.csv' 
+                val_path_RB = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/RB/valid_data.csv'
+                test_path_RB = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/RB/test_data.csv'
                 all_bottoms, all_tops = all_candidates(train_path_RB, val_path_RB, test_path_RB)
                 new_train_RT= create_RT_data(train_path_RB, all_tops)
                 new_valid_RT = create_RT_data(val_path_RB, all_tops)
                 new_test_RT = create_RT_data(test_path_RB, all_tops)
-                with open(conf['train_data'], mode='w', newline='') as file:
+                with open(conf['train_data'], mode='w', newline='') as file: #train_data_RT
                     writer = csv.writer(file)
                     for row in new_train_RT:
                         writer.writerow(row)
@@ -264,7 +258,7 @@ def prepare_data(conf):
                     for row in new_test_RT:
                         writer.writerow(row)
 
-        # print(conf['train_data'])
+        print("train data path:", conf['train_data'])
         train_data = load_csv_data(conf['train_data'])
         test_data = load_csv_data(conf['valid_data'])
         val_data = load_csv_data(conf['test_data'])
@@ -290,8 +284,8 @@ def prepare_data(conf):
         print('category information done !')
         return new_train, new_test, new_val, visual_features, user_map, item_map , item_cates, cate_items
     all_bottoms, all_tops = all_candidates(conf['train_data'], conf['test_data'], conf['valid_data'])
-    item_cates = {"0": all_bottoms}
-    return conf['train_data'], conf['valid_data'],  conf['test_data'], train_data, test_data, val_data, visual_features, user_map, item_map, all_bottoms, all_tops, item_cates
+    # item_cates = {"0": all_bottoms}#all_bottoms泛指all——candidates,在推荐top时候，all_bootoms指代all——tops
+    return conf['train_data'], conf['valid_data'],  conf['test_data'], train_data, test_data, val_data, visual_features, user_map, item_map, all_bottoms, all_tops
 
 
 def load_cache(conf):
@@ -323,7 +317,7 @@ def load_cache(conf):
 #         wide_test_list.append(test_list)
 #     return np.array(wide_test_list)  # neg_num + 1
 
-def all_candidates(train_path, val_path, test_path):
+def all_candidates(train_path, val_path, test_path): 
     train_df = pd.read_csv(train_path, header=None).astype('int')
     test_df = pd.read_csv(val_path, header=None).astype('int')
     valid_df = pd.read_csv(test_path, header=None).astype('int')
@@ -355,11 +349,10 @@ def prepare_wide_evaluate(all_bottoms, test_data, neg_num):
         u, i, j, neg_j = data
         neg_list = [neg_j]
         available_bottoms = [item for item in all_bottoms if item != j]
-        if len(available_bottoms) < neg_num -1:
+        if len(available_bottoms) < neg_num:
             raise ValueError("Not enough items to sample from after excluding pos_bottom_idx")
-        neg_js = random.sample(available_bottoms, neg_num -1)
-        neg_list = neg_list + neg_js
-        test_list = [u, i, j] + neg_list
+        neg_js = random.sample(available_bottoms, neg_num)
+        test_list = [u, i, j] + neg_js
         wide_test_list.append(test_list)
         # print(test_list) #[327, 16888, 39973, 43714, 58795, 80205, 66063, 102180, ...]
     return np.array(wide_test_list)
@@ -370,6 +363,7 @@ class Dataset():
         self.conf = conf
         dataconf = yaml.safe_load(open('./config/CP_config.yaml'))
         dataconf['dataset'] = self.conf['dataset']
+
         if self.conf['dataset'] == 'IQON3000':
             dataconf['new_datapath'] = dataconf['root_datapath'] + 'IQON3000/'
         elif self.conf['dataset'] == 'Polyvore_519':
@@ -378,58 +372,34 @@ class Dataset():
             dataconf['new_datapath'] = dataconf['root_datapath'] + 'iqon_s/'
         elif self.conf['dataset'] == 'ifashion':
             dataconf['new_datapath'] = dataconf['root_datapath'] + 'iFashion/'
+
         dataconf['device'] = self.conf['device']
         if not os.path.exists(dataconf['new_datapath']):
             os.makedirs(dataconf['new_datapath'])
 
-        # if conf['dataset'] == 'IQON3000':
-        #     if conf['mode'] == 'RB':
-        #         self.conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/train_indexed.csv'
-        #         self.conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/valid_indexed.csv'
-        #         self.conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/test_indexed.csv'
-        #     elif conf['mode'] == 'RT':
-        #         self.conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/train_indexed_top.csv'
-        #         self.conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/valid_indexed_top.csv'
-        #         self.conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/test_indexed_top.csv'
-        
-        # elif conf['dataset'] == 'Polyvore_519': #original ,not subsampled 
-        #     if conf['mode'] == 'RB':
-        #         self.conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data.csv' #'/polyvore_U_519_subset_data/train_sub_data.csv'
-        #         self.conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data.csv' #'/polyvore_U_519_subset_data/valid_sub_data.csv'
-        #         self.conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data.csv' #'/polyvore_U_519_subset_data/test_sub_data.csv'
-        #     elif conf['mode'] == 'RT':
-        #         self.conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data_RT.csv' 
-        #         self.conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data_RT.csv' 
-        #         self.conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data_RT.csv' 
-        #         print(os.path.exists(conf['train_data']))
-        
-        # print(self.conf['train_data'])
-
-        # if conf['data_status'] == 'prepare_save':
-        #     dataconf['save_new_data'] = 1
-        #     train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.item_cates, self.cate_items = prepare_data(dataconf)
-        # elif conf['data_status'] == 'prepare_no_save':
-        #     dataconf['save_new_data'] = 0
-        #     train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.item_cates, self.cate_items = prepare_data(dataconf)
-        # elif conf['data_status'] == 'use_old':
+        if conf['data_status'] == 'prepare_save':
+            dataconf['save_new_data'] = 1
+            train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.item_cates, self.cate_items = prepare_data(dataconf)
+        elif conf['data_status'] == 'prepare_no_save':
+            dataconf['save_new_data'] = 0
+            train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.item_cates, self.cate_items = prepare_data(dataconf)
+        elif conf['data_status'] == 'use_old':
         #     train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.item_cates, self.cate_items = load_cache(dataconf)
-
-        conf['train_data'], conf['valid_data'],  conf['test_data'],train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.all_bottoms, self.all_tops, self.item_cates = prepare_data(dataconf)
+            conf['train_data'], conf['valid_data'],  conf['test_data'],train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.all_bottoms, self.all_tops = prepare_data(conf)
         
-
         if conf['wide_evaluate']:
             print(conf['test_data'])
             try:
-                test_data_L = np.load(dataconf['new_datapath'] +'/test_data_%d.npy' % (self.conf['neg_num']))
+                test_data_L = np.load(dataconf['new_datapath'] +'/test_data_%d_%s.npy' % (self.conf['neg_num'], self.conf['mode']))
                 # print(test_data_L.shpae())
-                val_data_L = np.load(dataconf['new_datapath'] +'/val_data_%d.npy' % (self.conf['neg_num']))
+                val_data_L = np.load(dataconf['new_datapath'] +'/val_data_%d_%s.npy' % (self.conf['neg_num'], self.conf['mode']))
                 print('test and validation data for top %d evaluation loaded' %self.conf['topk'][0])
             except Exception:
                 print('preparing test and validation data for top %d evaluation'% conf['topk'][0])
                 test_data_L = prepare_wide_evaluate(self.all_bottoms, test_data, self.conf['neg_num'])
                 val_data_L = prepare_wide_evaluate(self.all_bottoms, val_data, self.conf['neg_num'])
-                np.save(dataconf['new_datapath'] + '/test_data_%d.npy' %(self.conf['neg_num']), test_data_L)
-                np.save(dataconf['new_datapath'] + '/val_data_%d.npy' %(self.conf['neg_num']), val_data_L)
+                np.save(dataconf['new_datapath'] + '/test_data_%d_%s.npy' %(self.conf['neg_num'], self.conf['mode']), test_data_L)
+                np.save(dataconf['new_datapath'] + '/val_data_%d_%s.npy' %(self.conf['neg_num'], self.conf['mode']), val_data_L)
 
         self.visual_features = torch.cat((visual_features, torch.zeros(1, 2048)), 0)
         self.train_items, self.train_users = self.get_train_user_items(train_data)
@@ -438,24 +408,39 @@ class Dataset():
 
         if conf['model'] == 'TransMatch':
             if conf['path_enhance'] or conf['context_enhance']:
-                u_IJS_path = dataconf['new_datapath'] + dataconf['u_topk_IJs']
-                i_UJS_path = dataconf['new_datapath'] + dataconf['i_topk_UJs']
-                j_UIS_path = dataconf['new_datapath'] + dataconf['j_topk_UIs']
-                u_topk_IJs = json.load(open(u_IJS_path))
-                i_topk_UJs = json.load(open(i_UJS_path))
-                j_topk_UIs = json.load(open(j_UIS_path))
-                self.u_topk_IJs = get_U_topk_IJs_tensor(u_topk_IJs)
-                self.i_topk_UJs = get_U_topk_IJs_tensor(i_topk_UJs)
-                self.j_topk_UIs = get_U_topk_IJs_tensor(j_topk_UIs)
+                u_IJS_path = dataconf['new_datapath'] + '/%s_u_topk_Is_Js_dict_%s.json'%(self.conf['pretrained_model'], self.conf['mode']) #dataconf['u_topk_IJs']
+                i_UJS_path = dataconf['new_datapath'] + '/%s_i_topk_Us_Js_dict_%s.json'%(self.conf['pretrained_model'], self.conf['mode'])  #dataconf['i_topk_UJs']
+                j_UIS_path = dataconf['new_datapath'] + "/%s_j_topk_Us_Is_dict_%s.json"%(self.conf['pretrained_model'], self.conf['mode'])  #dataconf['j_topk_UIs']
+                try:
+                    if not os.path.exists(u_IJS_path):
+                        raise FileNotFoundError(f"File not found: {u_IJS_path}")
+                    if not os.path.exists(i_UJS_path):
+                        raise FileNotFoundError(f"File not found: {i_UJS_path}")
+                    if not os.path.exists(j_UIS_path):
+                        raise FileNotFoundError(f"File not found: {j_UIS_path}")
+                    u_topk_IJs = json.load(open(u_IJS_path))
+                    i_topk_UJs = json.load(open(i_UJS_path))
+                    j_topk_UIs = json.load(open(j_UIS_path))           
+                    self.u_topk_IJs = get_U_topk_IJs_tensor(u_topk_IJs)
+                    self.i_topk_UJs = get_U_topk_IJs_tensor(i_topk_UJs)
+                    self.j_topk_UIs = get_U_topk_IJs_tensor(j_topk_UIs)
+                except FileNotFoundError as e:
+                    print(e)
+                    sys.exit(1)
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+                    sys.exit(1)
 
                 fake_triplets_path = dataconf[
-                    'new_datapath'] + 'fake_triplets_U%d_I%d.csv' % (self.conf['topk_u'], self.conf['topk_i'])
+                    'new_datapath'] + 'fake_triplets_U%d_I%d_%s.csv' % (self.conf['topk_u'], self.conf['topk_i'], self.conf['mode'])
+                
                 if os.path.exists(fake_triplets_path):
                     self.unique_fake_triplets = load_csv_data(fake_triplets_path)
                 else:
                     unique_fake_triplets = get_fake_triplets(conf['train_data'], fake_triplets_path, self.conf['topk_u'], self.conf['topk_i'], u_topk_IJs, i_topk_UJs, j_topk_UIs)
                     self.unique_fake_triplets = load_csv_data(fake_triplets_path)
                 entity2edge_set, edge2entities, edge2relation, e2re, relation2entity_set = build_kg_topk(self.unique_fake_triplets)
+                
             else:
                 entity2edge_set, edge2entities, edge2relation, e2re, relation2entity_set = build_kg(train_data)
             self.null_entity = len(self.item_map)
@@ -493,20 +478,20 @@ class Dataset():
                 # if applying pathcon_path or path_contrastive, all conditional paths in the kg should be obtained first.
                 if self.conf['path_enhance']:
                     ht_dict_path = dataconf[
-                        'new_datapath'] + '/ht_dict_topk_U%d_I%d_%d_%d.json' % (
+                        'new_datapath'] + '/ht_dict_topk_U%d_I%d_%d_%d_%s.json' % (
                             self.conf['topk_u'], self.conf['topk_i'], self.conf['path_num'],
-                            self.conf['max_path_len'])
+                            self.conf['max_path_len'], self.conf['mode'])
                     path_tensor_path = dataconf[
-                        'new_datapath'] + '/path_topk_U%d_I%d_%d_%d_all' % (
+                        'new_datapath'] + '/path_topk_U%d_I%d_%d_%d_all_%s' % (
                             self.conf['topk_u'], self.conf['topk_i'], self.conf['path_num'],
-                            self.conf['max_path_len'])
+                            self.conf['max_path_len'], self.conf['mode'])
                 else:
                     ht_dict_path = dataconf[
-                        'new_datapath'] + '/ht_dict_%d_%d.json' % (
-                            self.conf['path_num'], self.conf['max_path_len'])
+                        'new_datapath'] + '/ht_dict_%d_%d_%s.json' % (
+                            self.conf['path_num'], self.conf['max_path_len'], conf['mode'])
                     path_tensor_path = dataconf[
-                        'new_datapath'] + '/path_%d_%d_all' % (
-                            self.conf['path_num'], self.conf['max_path_len'])
+                        'new_datapath'] + '/path_%d_%d_all_%s' % (
+                            self.conf['path_num'], self.conf['max_path_len'], conf['mode'])
                 if not os.path.exists(ht_dict_path) or not os.path.exists(
                         path_tensor_path):
                     print('generating shorter than %d paths ...' %
@@ -523,7 +508,7 @@ class Dataset():
                         count_all_paths,
                         zip([e2re] * n_cores, [self.conf['max_path_len']] * n_cores,
                             [head2tails_list[i[0]:i[1]] for i in range_list],
-                            # [self.item_cates] * n_cores, range(n_cores)))
+                            # [self.item_cates] * n_cores, range(n_cores))) # for iqon_s dataset
                             range(n_cores)))
 
                     res = defaultdict(set)
@@ -584,7 +569,7 @@ class Dataset():
                     ht_dict = json.load(open(ht_dict_path))
                     self.ht2paths = torch.load(path_tensor_path)
 
-        if self.conf['path']:
+        if self.conf['path'] or self.conf['path_enhance']:
             self.traindata = Train_Data_Path(train_data, self.all_bottoms,
                                              ht_dict,
                                              self.ht2paths, e2re,
@@ -617,7 +602,7 @@ class Dataset():
         self.test_setting_list = ['test_auc', 'val_auc']
 
         if self.conf['wide_evaluate']:
-            if self.conf['path']:
+            if self.conf['path'] or conf['path_enhance']:
                 self.wide_testdata = Wide_Test_Data_Path(
                     test_data_L, ht_dict, self.ht2paths, e2re,
                     self.conf['max_path_len'], self.conf['path_num'], self.null_relation)
@@ -635,14 +620,14 @@ class Dataset():
                 self.wide_valdata,
                 batch_size=self.conf['test_batch_size'],
                 shuffle=False)
-            # self.test_loader_list += [
-            #     self.wide_test_loader, self.wide_val_loader
-            # ]
-            # self.test_setting_list += ['test_topk', 'val_topk']
-            self.test_loader_list = [
+            self.test_loader_list += [
                 self.wide_test_loader, self.wide_val_loader
             ]
-            self.test_setting_list = ['test_topk', 'val_topk']
+            self.test_setting_list += ['test_topk', 'val_topk']
+            # self.test_loader_list = [
+            #     self.wide_test_loader, self.wide_val_loader
+            # ]
+            # self.test_setting_list = ['test_topk', 'val_topk']
 
     def get_train_user_items(self, train_data):
         train_items = set()

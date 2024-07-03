@@ -28,6 +28,15 @@ from collections import defaultdict
 from tqdm import tqdm
 from config.configurator import parse_configure
 
+def get_logger():
+    logger_name = "main-logger"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    fmt = "[%(asctime)s %(levelname)s %(filename)s line %(lineno)d %(process)d] %(message)s"
+    handler.setFormatter(logging.Formatter(fmt))
+    logger.addHandler(handler)
+    return logger
 
 def evaluating(model, testData, device, topks):
     model.eval()
@@ -140,7 +149,7 @@ def Train_Eval(conf):
                             
                         if auc > best_auc:
                             best_auc = auc
-                            savename = './saved/' + conf['dataset'] + '/'+ conf['model'] + '/epoch_%d_p%dc%d_%s.pth' %(epoch, conf['path'], conf['context'],conf['mode'])
+                            savename = './saved/' + conf['dataset'] + '/'+ conf['model'] + '/p%dc%d_%s_AUC_.pth' %(conf['path'], conf['context'],conf['mode'])
                             torch.save({'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()}, savename)
                             # shutil.rmtree(model_path)
                             # os.makedirs(model_path)
@@ -247,6 +256,16 @@ def get_cmd():
                         default= "RB",
                         type=str,
                         help='given top recommend bottom')
+    parser.add_argument('-PE',
+                        '--path_enhance',
+                        default= 0,
+                        type=int,
+                        help='using path enhance branch')
+    parser.add_argument('-CE',
+                        '--context_enhance',
+                        default= 0,
+                        type=int,
+                        help='using context enhance branch')
     args = parser.parse_args()
     return args
 
@@ -256,6 +275,7 @@ if __name__ == '__main__':
     conf = yaml.safe_load(open('./config/CP_config.yaml'))
     for k in paras:
         conf[k] = paras[k]
+    print(conf)
     conf['device'] = torch.device(
         'cuda:%s' % conf['gpu'] if torch.cuda.is_available() else 'cpu')
 

@@ -96,7 +96,7 @@ def _get_IJs_for_U_(conf, dataset, model, train_ij_pairs):
         topk_i_j_pairs = ij_pairs[topk_indices]
         new_u_ij_dict[int(user_idx)] = topk_i_j_pairs.cpu().numpy().tolist()
 
-    U_topk_ij_file = conf['root_datapath'] + conf['dataset'] + '/%s_u_topk_ijs_dict.json'%conf['pretrained_model'] 
+    U_topk_ij_file = conf['root_datapath'] + conf['dataset'] + '/%s_u_topk_ijs_dict_%s.json'%(conf['pretrained_model'], conf['mode'])  
     with open(U_topk_ij_file, 'w') as json_file:
         json.dump(new_u_ij_dict, json_file)
     # if conf['pretrained_model'] == 'TransR':
@@ -112,7 +112,7 @@ def _get_IJs_for_U_(conf, dataset, model, train_ij_pairs):
         j_values = [item[1] for item in value]  # 获取 'j' 的值
         new_u_Is_Js_dict[key] = [i_values, j_values]
 
-    u_Is_Js_file = conf['root_datapath'] + conf['dataset'] + '/%s_u_topk_Is_Js_dict.json'%conf['pretrained_model'] 
+    u_Is_Js_file = conf['root_datapath'] + conf['dataset'] + '/%s_u_topk_Is_Js_dict_%s.json'%(conf['pretrained_model'], conf['mode'])
     with open(u_Is_Js_file, 'w') as json_file:
         json.dump(new_u_Is_Js_dict, json_file)
 
@@ -162,7 +162,7 @@ def _get_UJs_for_I_(conf, dataset, model, train_uj_pairs):
         topk_u_j_pairs = uj_pairs[topk_indices]
         new_i_uj_dict[int(I_idx)] = topk_u_j_pairs.cpu().numpy().tolist()
 
-    I_topk_UJs_file = conf['root_datapath'] + conf['dataset'] + '/%s_I_topk_UJs_dict.json'%conf['pretrained_model'] 
+    I_topk_UJs_file = conf['root_datapath'] + conf['dataset'] + '/%s_I_topk_UJs_dict_%s.json'%(conf['pretrained_model'], conf['mode']) 
     with open(I_topk_UJs_file, 'w') as json_file:
         json.dump(new_i_uj_dict, json_file)
 
@@ -173,7 +173,7 @@ def _get_UJs_for_I_(conf, dataset, model, train_uj_pairs):
 
         new_i_Us_Js_dict[key] = [i_values, j_values]
 
-    i_topk_Us_Js_file = conf['root_datapath'] + conf['dataset'] + '/%s_i_topk_Us_Js_dict.json'%conf['pretrained_model'] 
+    i_topk_Us_Js_file = conf['root_datapath'] + conf['dataset'] + '/%s_i_topk_Us_Js_dict_%s.json'%(conf['pretrained_model'], conf['mode']) 
     with open(i_topk_Us_Js_file, 'w') as json_file:
         json.dump(new_i_Us_Js_dict, json_file)
 
@@ -212,7 +212,7 @@ def _get_UIs_for_J_(conf, dataset, model, train_ui_pairs):
         topk_u_i_pairs = ui_pairs[topk_indices]
         new_j_ui_dict[int(J_idx)] = topk_u_i_pairs.cpu().numpy().tolist()
     
-    J_topk_UIs_file = conf['root_datapath'] + conf['dataset'] + '/%s_J_topk_UIs_dict.json'%conf['pretrained_model'] 
+    J_topk_UIs_file = conf['root_datapath'] + conf['dataset'] + '/%s_J_topk_UIs_dict_%s.json'%(conf['pretrained_model'], conf['mode']) 
     with open(J_topk_UIs_file, 'w') as json_file:
         json.dump(new_j_ui_dict, json_file)
 
@@ -223,7 +223,7 @@ def _get_UIs_for_J_(conf, dataset, model, train_ui_pairs):
 
         new_j_Us_Is_dict[key] = [i_values, j_values]
 
-    j_Us_Is_file = conf['root_datapath'] + conf['dataset'] + '/%s_j_topk_Us_Is_dict.json'%conf['pretrained_model'] 
+    j_Us_Is_file = conf['root_datapath'] + conf['dataset'] + '/%s_j_topk_Us_Is_dict_%s.json'%(conf['pretrained_model'], conf['mode'])  
     with open(j_Us_Is_file, 'w') as json_file:
         json.dump(new_j_Us_Is_dict, json_file)
 
@@ -243,11 +243,36 @@ def get_cmd():
                         default='0',
                         type=str,
                         help='assign cuda device')
+    parser.add_argument('-p',
+                        '--path',
+                        default= 1,
+                        type=int,
+                        help='using path branch')
+    parser.add_argument('-c',
+                        '--context',
+                        default= 1,
+                        type=int,
+                        help='using context branch')
+    parser.add_argument('-s',
+                        '--save_model',
+                        default= 1,
+                        type=int,
+                        help='save trained model')
     parser.add_argument('-m',
                         '--mode',
                         default= "RB",
                         type=str,
                         help='given top recommend bottom')
+    parser.add_argument('-PE',
+                        '--path_enhance',
+                        default= 0,
+                        type=int,
+                        help='using path enhance branch')
+    parser.add_argument('-CE',
+                        '--context_enhance',
+                        default= 0,
+                        type=int,
+                        help='using context enhance branch')
     args = parser.parse_args()
     return args
 
@@ -275,26 +300,27 @@ def main():
             pretrain_model_file = f"{conf['pretrained_model']}.pth.tar"
     elif conf['dataset'] == "Polyvore_519":
         if conf['mode'] == 'RB':
-            pretrain_model_file = "epoch_118_p0c0_RB_AUC_0.7645.pth"
+            pretrain_model_file = f"{conf['pretrained_model']}.pth.tar" #"epoch_118_p0c0_RB_AUC_0.7645.pth"
     elif conf['dataset'] == "IQON3000":
         if conf['mode'] == 'RB':
-            pretrain_model_file = "epoch_77_p0c0_RB_AUC_0.8607.pth"
+            pretrain_model_file = f"{conf['pretrained_model']}.pth.tar" #"epoch_77_p0c0_RB_AUC_0.8607.pth"
     print("pretrain_model_file:",pretrain_model_file)
     pretrain_model_dir = './saved/' + conf['dataset'] + '/pretrained_model/'
     pretrain_model_path = os.path.join(pretrain_model_dir, pretrain_model_file)
     conf['context_enhance'] = 0
     conf['path_enhance'] = 0
 
-    model = TransMatch(conf, dataset.neighbor_params,
-                               dataset.visual_features.to(conf['device']))
+    # model = TransMatch(conf, dataset.neighbor_params,
+    #                            dataset.visual_features.to(conf['device']))
 
     if os.path.exists(pretrain_model_path):
         logger.info('=> loading model ...')
-        checkpoint = torch.load(pretrain_model_path)
-        print('Testing with existing model...')
-        conf['use_pretrain'] = True
-        model.load_state_dict(checkpoint['state_dict'], strict=False)
-        logger.info("=> loaded checkpoint '{}'".format(pretrain_model_path))
+        model = torch.load(pretrain_model_path)
+        # checkpoint = torch.load(pretrain_model_path)
+        # print('Testing with existing model...')
+        # conf['use_pretrain'] = True
+        # model.load_state_dict(checkpoint['state_dict'], strict=False)
+        # logger.info("=> loaded checkpoint '{}'".format(pretrain_model_path))
         model.to(conf['device'])
         logger.info(model)
     else:
@@ -310,23 +336,14 @@ def main():
         model.to(conf['device'])
         logger.info(model)
     if conf['dataset'] == 'IQON3000':
-        if conf['mode'] == 'RB':
-            conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/train_indexed.csv'
-            conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/valid_indexed.csv'
-            conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/test_indexed.csv'
-        elif conf['mode'] == 'RT':
-            conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/train_indexed_top.csv'
-            conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/valid_indexed_top.csv'
-            conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/test_indexed_top.csv'
+        conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/data/' + conf['mode'] + '/train_indexed.csv'
+        conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/data/' + conf['mode'] + '/valid_indexed.csv'
+        conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/data/' + conf['mode'] + '/test_indexed.csv'
     elif conf['dataset'] == 'Polyvore_519': #original ,not subsampled 
-        if conf['mode'] == 'RB':
-            conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data.csv' #'/polyvore_U_519_subset_data/train_sub_data.csv'
-            conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data.csv' #'/polyvore_U_519_subset_data/valid_sub_data.csv'
-            conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data.csv' #'/polyvore_U_519_subset_data/test_sub_data.csv'
-        elif conf['mode'] == 'RT':
-            conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/train_data_RT.csv' 
-            conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/valid_data_RT.csv' 
-            conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/test_data_RT.csv' 
+        conf['train_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/' + conf['mode'] + '/train_data.csv' 
+        conf['valid_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/' + conf['mode'] + '/valid_data.csv' 
+        conf['test_data'] = conf['root_datapath'] + conf['dataset'] + '/polyvore_U_519_data/' + conf['mode'] + '/test_data.csv'
+
     print("Training data from:", conf['train_data'])      
     train_df = pd.read_csv(conf['train_data'], header=None).astype('int')
     train_df.columns = ['user_idx', 'top_idx', 'pos_bottom_idx', 'neg_bottom_idx']
