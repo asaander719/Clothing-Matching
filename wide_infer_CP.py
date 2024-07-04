@@ -22,27 +22,8 @@ from collections import defaultdict
 from tqdm import tqdm
 from config.configurator import parse_configure
 
-# def evaluating(model, testData, device, topks):
-#     model.eval()
-#     preds = []
-#     for iteration, aBatch in enumerate(testData):
-#         aBatch = [x.to(device) for x in aBatch]
-#         scores = model.inference(aBatch).detach().cpu()
-#         _, tops = torch.topk(scores, k=topks[-1], dim=-1) #k=topks[-1]
-#         preds.append(tops)
-
-#     preds = torch.cat(preds, dim=0)
-#     bs = preds.size(0)
-#     grd = [0] * bs
-#     grd_cnt = [1] * bs
-#     metrics = {}
-#     for topk in topks:
-#         metrics[topk] = {}
-#         REC, MRR, NDCG = get_metrics(grd, grd_cnt, preds.numpy(), topk)
-#         metrics[topk]['recall'] = REC
-#         metrics[topk]['mrr'] = MRR
-#         metrics[topk]['ndcg'] = NDCG
-#     return metrics, preds
+##注意如果使用多gpu,把TransMatch_ori inference 改成forward
+## CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7 python wide_infer_CP.py -d=IQON3000 -p=1 -c=1 -s=0 -m=RB
 
 def WIDE_INFER(model, testData, device, topks): #for wide infer
     batch_time = AverageMeter()
@@ -153,13 +134,11 @@ def Train_Eval(conf):
         if conf["mode"] == "RB":
             model_path = "saved/Polyvore_519/TransMatch/epoch_142_p1c1_RB_AUC_0.8115.pth"
         elif conf["mode"] == "RT":
-            # conf['test_data'] = 
-            model_path = "saved/Polyvore_519/TransMatch/epoch_99_p1c1_RT_AUC_0.8009.pth"
+            model_path = "saved/Polyvore_519/TransMatch/p1c1_RT_AUC_.pth"
     elif conf['dataset'] == "IQON3000":
         if conf["mode"] == "RB":
-            model_path = "saved/IQON3000/TransMatch/epoch_117_p1c1_RB_AUC_0.8763.pth"
+            model_path =  "saved/IQON3000/TransMatch/p1c1_RB_AUC_.pth"
         elif conf["mode"] == "RT":
-            # conf['test_data'] = "/home/asaliao/NiPCBPR/NiPC-BPR/dataset/IQON3000/data/train_indexed_top.csv"
             model_path = "saved/IQON3000/TransMatch/epoch_121_p1c1_RT_AUC_0.8523.pth"
     
     if os.path.isfile(model_path):
@@ -170,26 +149,26 @@ def Train_Eval(conf):
     else:
         raise RuntimeError("=> no checkpoint found at '{}'".format(model_path))
     
-    if torch.cuda.device_count() > 1:
-        print("Let's use", torch.cuda.device_count(), "GPUs!")
-        model = nn.DataParallel(model)
+    # if torch.cuda.device_count() > 1:
+    #     print("Let's use", torch.cuda.device_count(), "GPUs!")
+    #     model = nn.DataParallel(model)
     model.to(conf['device'])
    
     for test_setting, test_loader in zip(dataset.test_setting_list,
                                             dataset.test_loader_list):
-        if 'auc' in test_setting:  # auc evalution
-            metrics, preds = evaluating(model, test_loader,
-                                        conf['device'], conf['topk'])
-            curr_time = '%s ' % datetime.now().strftime(
-                '%Y-%m-%d %H:%M:%S')
-            result_str = ''
-            for met in metrics[1]:
-                auc = metrics[1][met]
-                result_str += ' {}: {:.4f}'.format('AUC', auc)
-                break
-            print('%s' % test_setting[:-5], curr_time, result_str)
+        # if 'auc' in test_setting:  # auc evalution
+        #     metrics, preds = evaluating(model, test_loader,
+        #                                 conf['device'], conf['topk'])
+        #     curr_time = '%s ' % datetime.now().strftime(
+        #         '%Y-%m-%d %H:%M:%S')
+        #     result_str = ''
+        #     for met in metrics[1]:
+        #         auc = metrics[1][met]
+        #         result_str += ' {}: {:.4f}'.format('AUC', auc)
+        #         break
+        #     print('%s' % test_setting[:-5], curr_time, result_str)
         
-        else:  # topk evaluation
+        # else:  # topk evaluation
             metrics, preds, item_ids = WIDE_INFER(model, test_loader,
                                         conf['device'], 
                                         conf['topk'])
@@ -203,7 +182,7 @@ def Train_Eval(conf):
                     break
             print('%s' % (test_setting[:-5]), curr_time, result_str)
             df = pd.DataFrame(item_ids.cpu().numpy())
-            csv_file_path = "saved/{}/{}/{}/_infer_top100_0702.csv".format(conf['dataset'], conf['model'], conf['mode'])  
+            csv_file_path = "saved/{}/{}/{}/_infer_top100_0703.csv".format(conf['dataset'], conf['model'], conf['mode'])  
             df.to_csv(csv_file_path, index=False, header=False)      
 
 def get_cmd():
@@ -239,6 +218,16 @@ def get_cmd():
                         default= "RB",
                         type=str,
                         help='given top recommend bottom')
+    parser.add_argument('-PE',
+                        '--path_enhance',
+                        default= 0,
+                        type=int,
+                        help='using path enhance branch')
+    parser.add_argument('-CE',
+                        '--context_enhance',
+                        default= 0,
+                        type=int,
+                        help='using context enhance branch')
     args = parser.parse_args()
     return args
 
@@ -260,6 +249,6 @@ if __name__ == '__main__':
     conf['wide_evaluate'] = True
     conf['topk'] = [5,10,20, 100]
     conf['neg_num'] = 99
-    conf['mode'] = "RT"
+    # conf['mode'] = "RT"
     print(conf)
     Train_Eval(conf)

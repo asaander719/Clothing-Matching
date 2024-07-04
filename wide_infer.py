@@ -191,7 +191,7 @@ def main():
                 args.model_path = "saved/IQON3000/GPBPR_RT_22.pth" # recall@5: 0.1685, recall@10: 0.2504, ndcg@5: 0.1185, ndcg@10: 0.1448, mrr@5: 0.1022, mrr@10: 0.1129 Accuracy 0.7754 AUC_NUM:  17909.0
         elif args.dataset == 'Polyvore_519':
             if args.mode == 'RB':    
-                args.model_path = "saved/Polyvore_519/GPBPR/RB/GPBPR_RB_45_AUC_0.7448.pth" #"saved/Polyvore_519/GPBPR_RB_21.pth" #recall@5: 0.1026, recall@10: 0.1711, ndcg@5: 0.0642, ndcg@10: 0.0861, mrr@5: 0.0517, mrr@10: 0.0606
+                args.model_path = "/home/asaliao/NiPCBPR/NiPC-BPR/saved/Polyvore_519/GPBPR/RB/GPBPR_RB_45_AUC_0.7448.pth" #"saved/Polyvore_519/GPBPR_RB_21.pth" #recall@5: 0.1026, recall@10: 0.1711, ndcg@5: 0.0642, ndcg@10: 0.0861, mrr@5: 0.0517, mrr@10: 0.0606
             elif args.mode == 'RT':
                 args.model_path = "saved/Polyvore_519/GPBPR/RT/GPBPR_RT_41_AUC_0.7397.pth" #"saved/Polyvore_519/GPBPR_RT_20.pth" #recall@5: 0.1160, recall@10: 0.1967, ndcg@5: 0.0704, ndcg@10: 0.0961, mrr@5: 0.0555, mrr@10: 0.0660 Accuracy 0.7405 AUC_NUM:  3784.0
 

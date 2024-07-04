@@ -154,8 +154,8 @@ def Train_Eval(conf):
                                 os.makedirs(model_path)
                                 if conf['save_model']:
                                     torch.save(model, 
-                                               './saved/%s/%s/p%dc%d_PE%d_CE%d.pth.tar'%(conf['dataset'], 
-                                                conf['model'], conf['path'], conf['context'],conf['path_enhance'],conf['context_enhance']))
+                                               './saved/%s/%s/p%dc%d_PE%d_CE%d_%s_AUC_.pth.tar'%(conf['dataset'], 
+                                                conf['model'], conf['path'], conf['context'],conf['path_enhance'],conf['context_enhance']),conf['mode'])
                                 
                                 # + 'epoch_%d_%s_%.4f' %(epoch, test_setting, best_auc))
 
