@@ -269,9 +269,9 @@ def prepare_data(conf):
         item_map = json.load(open('./dataset/Polyvore_519/polyvore_U_519_data/item_map'))
 
     elif conf['dataset'] == 'iqon_s':
-        conf['train_data'] = conf['new_datapath'] + '/UII_train_quadruple.json'
-        conf['valid_data'] = conf['new_datapath'] + '/UII_test_quadruple.json'
-        conf['test_data'] = conf['new_datapath'] + '/UII_valid_quadruple.json'
+        conf['train_data'] = conf['new_datapath'] + conf['dataset'] + '/UII_train_quadruple.json'
+        conf['valid_data'] = conf['new_datapath'] + conf['dataset'] + '/UII_test_quadruple.json'
+        conf['test_data'] = conf['new_datapath'] + conf['dataset'] + '/UII_valid_quadruple.json'
         train_data = json.load(open(conf['train_data']))
         test_data = json.load(open(conf['valid_data']))
         val_data = json.load(open(conf['test_data']))
@@ -279,43 +279,51 @@ def prepare_data(conf):
         train_data, test_data, val_data, conf)
         print('training, testing, validation data loaded !')
         # visual_features = torch.stack(visual_features, dim=0)
-        item_cates, cate_items, cate_map = map_item_cates(conf, item_cates_ori,
-                                                        cate_items_ori, item_map)
+        item_cates, cate_items, cate_map = map_item_cates(conf, item_cates_ori,cate_items_ori, item_map)
         print('category information done !')
+        visual_path = conf['root_datapath'] + 'IQON_Pairs' + conf['visual_features_dict_ori']
+        visual_features_ori = torch.load(visual_path,map_location=lambda a, b: a.cpu())
+        print('visual features loaded !')
+        visual_features = reindex_iqon_features(visual_features_ori, item_map,conf['device'])
         return new_train, new_test, new_val, visual_features, user_map, item_map , item_cates, cate_items
+    
     all_bottoms, all_tops = all_candidates(conf['train_data'], conf['test_data'], conf['valid_data'])
     # item_cates = {"0": all_bottoms}#all_bottoms泛指all——candidates,在推荐top时候，all_bootoms指代all——tops
     return conf['train_data'], conf['valid_data'],  conf['test_data'], train_data, test_data, val_data, visual_features, user_map, item_map, all_bottoms, all_tops
 
 
 def load_cache(conf):
-    new_train = load_csv_data(conf['new_datapath'] + 'train.csv')
-    new_test = load_csv_data(conf['new_datapath'] + 'test.csv')
-    new_val = load_csv_data(conf['new_datapath'] + 'val.csv')
+    if conf['dataset'] == 'iqon_s':
+        conf['train_data'] = conf['new_datapath'] + 'train.csv'
+        conf['valid_data'] = conf['new_datapath'] + 'test.csv' 
+        conf['test_data'] = conf['new_datapath'] + 'val.csv'
+    new_train = load_csv_data(conf['train_data'])
+    new_test = load_csv_data(conf['valid_data'])
+    new_val = load_csv_data(conf['test_data'])
     visual_features = torch.load(conf['new_datapath'] + conf['visual_features_tensor'], map_location=lambda a, b: a.cpu())
     item_cates = json.load(open(conf['new_datapath'] + conf['item_cates']))
     cate_items = json.load(open(conf['new_datapath'] + conf['cate_items']))
     user_map = json.load(open(conf['new_datapath'] + conf['user_map']))
     item_map = json.load(open(conf['new_datapath'] + conf['item_map']))
-    return new_train, new_test, new_val, visual_features, user_map, item_map, item_cates, cate_items
+    return conf['train_data'], conf['valid_data'],  conf['test_data'], new_train, new_test, new_val, visual_features, user_map, item_map, item_cates, cate_items
 
-# def prepare_wide_evaluate(test_data, neg_num, item_cates, cate_items):
-#     wide_test_list = []
-#     for data in test_data:
-#         u, i, j, neg_j = data
-#         neg_list = [neg_j]
-#         j_cate = item_cates[str(j)]
-#         candi_js = cate_items[str(j_cate)]
-#         if len(candi_js) < neg_num:
-#             continue
-#         while len(neg_list) < neg_num:
-#             neg_j = random.choice(candi_js)
-#             while neg_j == j or neg_j in neg_list:
-#                 neg_j = random.choice(candi_js)
-#             neg_list.append(neg_j)
-#         test_list = [u, i, j] + neg_list
-#         wide_test_list.append(test_list)
-#     return np.array(wide_test_list)  # neg_num + 1
+def prepare_wide_evaluate_iqons(test_data, neg_num, item_cates, cate_items):
+    wide_test_list = []
+    for data in test_data:
+        u, i, j, neg_j = data
+        neg_list = [neg_j]
+        j_cate = item_cates[str(j)]
+        candi_js = cate_items[str(j_cate)]
+        if len(candi_js) < neg_num:
+            continue
+        while len(neg_list) < neg_num:
+            neg_j = random.choice(candi_js)
+            while neg_j == j or neg_j in neg_list:
+                neg_j = random.choice(candi_js)
+            neg_list.append(neg_j)
+        test_list = [u, i, j] + neg_list
+        wide_test_list.append(test_list)
+    return np.array(wide_test_list)  # neg_num + 1
 
 def all_candidates(train_path, val_path, test_path): 
     train_df = pd.read_csv(train_path, header=None).astype('int')
@@ -372,6 +380,10 @@ class Dataset():
             dataconf['new_datapath'] = dataconf['root_datapath'] + 'iqon_s/'
         elif self.conf['dataset'] == 'ifashion':
             dataconf['new_datapath'] = dataconf['root_datapath'] + 'iFashion/'
+        elif self.conf['dataset'] == 'Polyvore':
+            dataconf['new_datapath'] = dataconf['root_datapath'] + 'Polyvore/polyvore/' # 
+            # ln -s /mnt/juanjuan/cafidata/UI_TransE/data/polyvore /home/asaliao/NiPCBPR/NiPC-BPR/dataset/Polyvore 
+            # #软连接 polyvore -> /mnt/juanjuan/cafidata/UI_TransE/data/polyvore
 
         dataconf['device'] = self.conf['device']
         if not os.path.exists(dataconf['new_datapath']):
@@ -384,8 +396,10 @@ class Dataset():
             dataconf['save_new_data'] = 0
             train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.item_cates, self.cate_items = prepare_data(dataconf)
         elif conf['data_status'] == 'use_old':
-        #     train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.item_cates, self.cate_items = load_cache(dataconf)
-            conf['train_data'], conf['valid_data'],  conf['test_data'],train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.all_bottoms, self.all_tops = prepare_data(conf)
+            if self.conf['dataset'] == 'iqon_s':
+                conf['train_data'], conf['valid_data'],  conf['test_data'],train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.item_cates, self.cate_items = load_cache(dataconf)
+            else:
+                conf['train_data'], conf['valid_data'],  conf['test_data'],train_data, test_data, val_data, visual_features, self.user_map, self.item_map, self.all_bottoms, self.all_tops = prepare_data(conf)
         
         if conf['wide_evaluate']:
             print(conf['test_data'])
@@ -396,10 +410,16 @@ class Dataset():
                 print('test and validation data for top %d evaluation loaded' %self.conf['topk'][0])
             except Exception:
                 print('preparing test and validation data for top %d evaluation'% conf['topk'][0])
-                test_data_L = prepare_wide_evaluate(self.all_bottoms, test_data, self.conf['neg_num'])
-                val_data_L = prepare_wide_evaluate(self.all_bottoms, val_data, self.conf['neg_num'])
-                np.save(dataconf['new_datapath'] + '/test_data_%d_%s.npy' %(self.conf['neg_num'], self.conf['mode']), test_data_L)
-                np.save(dataconf['new_datapath'] + '/val_data_%d_%s.npy' %(self.conf['neg_num'], self.conf['mode']), val_data_L)
+                if self.conf['dataset'] == 'iqon_s':
+                    test_data_L = prepare_wide_evaluate_iqons(test_data, conf['neg_num'],self.item_cates,self.cate_items)
+                    val_data_L = prepare_wide_evaluate_iqons(val_data, conf['neg_num'],self.item_cates,self.cate_items)
+                    np.save(dataconf['new_datapath'] + '/test_data_%d.npy' %(conf['neg_num']), test_data_L)
+                    np.save(dataconf['new_datapath'] + '/val_data_%d.npy' %(conf['neg_num']), val_data_L)
+                else:
+                    test_data_L = prepare_wide_evaluate(self.all_bottoms, test_data, self.conf['neg_num'])
+                    val_data_L = prepare_wide_evaluate(self.all_bottoms, val_data, self.conf['neg_num'])
+                    np.save(dataconf['new_datapath'] + '/test_data_%d_%s.npy' %(self.conf['neg_num'], self.conf['mode']), test_data_L)
+                    np.save(dataconf['new_datapath'] + '/val_data_%d_%s.npy' %(self.conf['neg_num'], self.conf['mode']), val_data_L)
 
         self.visual_features = torch.cat((visual_features, torch.zeros(1, 2048)), 0)
         self.train_items, self.train_users = self.get_train_user_items(train_data)
@@ -492,24 +512,24 @@ class Dataset():
                     path_tensor_path = dataconf[
                         'new_datapath'] + '/path_%d_%d_all_%s' % (
                             self.conf['path_num'], self.conf['max_path_len'], conf['mode'])
-                if not os.path.exists(ht_dict_path) or not os.path.exists(
-                        path_tensor_path):
-                    print('generating shorter than %d paths ...' %
-                          conf['max_path_len'])
+                if not os.path.exists(ht_dict_path) or not os.path.exists(path_tensor_path):
+                    print('generating shorter than %d paths ...' %conf['max_path_len'])
                     if self.conf['path_enhance']:
-                        head2tails = get_h2t_topk(self.unique_fake_triplets,
-                                                  test_data, val_data)
+                        head2tails = get_h2t_topk(self.unique_fake_triplets, test_data, val_data)
                     else:
                         head2tails = get_h2t(train_data, test_data, val_data)
                     head2tails_list = [(k, v) for k, v in head2tails.items()]
-                    n_cores, pool, range_list = get_params_for_mp(
-                        len(head2tails_list))
-                    results = pool.map(
-                        count_all_paths,
-                        zip([e2re] * n_cores, [self.conf['max_path_len']] * n_cores,
-                            [head2tails_list[i[0]:i[1]] for i in range_list],
-                            # [self.item_cates] * n_cores, range(n_cores))) # for iqon_s dataset
-                            range(n_cores)))
+                    n_cores, pool, range_list = get_params_for_mp(len(head2tails_list))
+                    if self.conf['dataset'] == 'iqon_s':
+                        results = pool.map(count_all_paths_iqons,
+                            zip([e2re] * n_cores, [conf['max_path_len']] * n_cores,
+                                [head2tails_list[i[0]:i[1]] for i in range_list],
+                                [self.item_cates] * n_cores, range(n_cores)))
+
+                    else:
+                        results = pool.map(count_all_paths,zip([e2re] * n_cores, [self.conf['max_path_len']] * n_cores,[head2tails_list[i[0]:i[1]] for i in range_list],
+                                # [self.item_cates] * n_cores, range(n_cores))) # for iqon_s dataset
+                                range(n_cores)))
 
                     res = defaultdict(set)
                     for ht2paths in results:
@@ -570,12 +590,20 @@ class Dataset():
                     self.ht2paths = torch.load(path_tensor_path)
 
         if self.conf['path'] or self.conf['path_enhance']:
-            self.traindata = Train_Data_Path(train_data, self.all_bottoms,
-                                             ht_dict,
-                                             self.ht2paths, e2re,
-                                             self.conf['max_path_len'],
-                                             self.conf['path_num'],
-                                             self.null_relation)
+            if self.conf['dataset'] == 'iqon_s':
+                self.traindata = Train_Data_Path_iqons(train_data, self.cate_items,
+                                    self.item_cates, ht_dict,
+                                    self.ht2paths, e2re,
+                                    conf['max_path_len'],
+                                    conf['path_num'],
+                                    self.null_relation)
+            else:
+                self.traindata = Train_Data_Path(train_data, self.all_bottoms,
+                                                ht_dict,
+                                                self.ht2paths, e2re,
+                                                self.conf['max_path_len'],
+                                                self.conf['path_num'],
+                                                self.null_relation)
 
             self.testdata = Test_Data_Path(test_data, ht_dict, self.ht2paths,
                                            e2re, self.conf['max_path_len'],
@@ -585,7 +613,11 @@ class Dataset():
                                           e2re, self.conf['max_path_len'],
                                           self.conf['path_num'], self.null_relation)
         else:
-            self.traindata = Train_Data(train_data, self.all_bottoms)
+            if self.conf['dataset'] == 'iqon_s':
+                self.traindata = Train_Data_iqons(train_data, self.cate_items,
+                                        self.item_cates)
+            else:
+                self.traindata = Train_Data(train_data, self.all_bottoms)
             self.testdata = Test_Data(test_data)
             self.valdata = Test_Data(val_data)
 

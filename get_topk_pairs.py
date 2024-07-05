@@ -297,7 +297,7 @@ def main():
 
     if conf['dataset'] == "iqon_s":
         if conf['mode'] == 'RB':
-            pretrain_model_file = f"{conf['pretrained_model']}.pth.tar"
+            pretrain_model_file = f"{conf['pretrained_model']}_AUC_0.6809.pth.tar"
     elif conf['dataset'] == "Polyvore_519":
         if conf['mode'] == 'RB':
             pretrain_model_file = f"{conf['pretrained_model']}.pth.tar" #"epoch_118_p0c0_RB_AUC_0.7645.pth"

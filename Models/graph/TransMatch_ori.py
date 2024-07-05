@@ -125,15 +125,15 @@ class TransMatch(Module):
         self.i_bias_l = nn.Embedding.from_pretrained(self.itemB, freeze=False, padding_idx=self.item_num)
         self.i_embeddings_i = nn.Embedding.from_pretrained(self.itemEmb, freeze=False, padding_idx=self.item_num)
      
-        self.visual_nn_comp = Sequential(
-            Linear(conf["visual_feature_dim"], self.hidden_dim),
+        self.visual_nn_comp = nn.Sequential(
+            nn.Linear(conf["visual_feature_dim"], self.hidden_dim),
             nn.Sigmoid())
 
         self.visual_nn_comp[0].apply(lambda module: normal_(module.weight.data,mean=0,std=1/(self.hidden_dim)**0.5))
         self.visual_nn_comp[0].apply(lambda module: normal_(module.bias.data,mean=0,std=1/(self.hidden_dim)**0.5))
 
-        self.visual_nn_per = Sequential(
-            Linear(conf["visual_feature_dim"], self.hidden_dim),
+        self.visual_nn_per = nn.Sequential(
+            nn.Linear(conf["visual_feature_dim"], self.hidden_dim),
             nn.Sigmoid())
         self.visual_nn_per[0].apply(lambda module: uniform_(module.weight.data,0,0.001))
         self.visual_nn_per[0].apply(lambda module: uniform_(module.bias.data,0,0.001))

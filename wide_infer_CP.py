@@ -105,7 +105,8 @@ def Train_Eval(conf):
     dataset = Dataset(conf)
     conf['user_num'] = len(dataset.user_map)
     conf['item_num'] = len(dataset.item_map)
-    # conf['cate_num'] = len(dataset.cate_items)
+    if conf['dataset'] == 'iqon_s':
+        conf['cate_num'] = len(dataset.cate_items)
     os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
     print(
         'data prepared, %d users, %d items, %d train, %d test, %d validation data'

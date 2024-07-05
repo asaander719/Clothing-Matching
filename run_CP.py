@@ -70,7 +70,8 @@ def Train_Eval(conf):
     dataset = Dataset(conf)
     conf['user_num'] = len(dataset.user_map)
     conf['item_num'] = len(dataset.item_map)
-    # conf['cate_num'] = len(dataset.cate_items)
+    if conf['dataset'] == 'iqon_s':
+        conf['cate_num'] = len(dataset.cate_items)  
     os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
     print(
         'data prepared, %d users, %d items, %d train, %d test, %d validation data'
@@ -149,8 +150,9 @@ def Train_Eval(conf):
                             
                         if auc > best_auc:
                             best_auc = auc
-                            savename = './saved/' + conf['dataset'] + '/'+ conf['model'] + '/p%dc%d_%s_AUC_.pth' %(conf['path'], conf['context'],conf['mode'])
-                            torch.save({'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()}, savename)
+                            savename = './saved/' + conf['dataset'] + '/'+ conf['model'] + '/p%dc%d_%s_AUC_.pth.tar' %(conf['path'], conf['context'],conf['mode'])
+                            torch.save(model, savename)
+                            # torch.save({'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()}, savename)
                             # shutil.rmtree(model_path)
                             # os.makedirs(model_path)
                         # elif auc < best_auc:
@@ -275,7 +277,7 @@ if __name__ == '__main__':
     conf = yaml.safe_load(open('./config/CP_config.yaml'))
     for k in paras:
         conf[k] = paras[k]
-    print(conf)
+    # print(conf)
     conf['device'] = torch.device(
         'cuda:%s' % conf['gpu'] if torch.cuda.is_available() else 'cpu')
 

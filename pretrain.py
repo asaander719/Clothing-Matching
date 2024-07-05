@@ -155,7 +155,7 @@ def Train_Eval(conf):
                                 if conf['save_model']:
                                     torch.save(model, 
                                                './saved/%s/%s/p%dc%d_PE%d_CE%d_%s_AUC_.pth.tar'%(conf['dataset'], 
-                                                conf['model'], conf['path'], conf['context'],conf['path_enhance'],conf['context_enhance']),conf['mode'])
+                                                conf['model'], conf['path'], conf['context'],conf['path_enhance'],conf['context_enhance'],conf['mode']))
                                 
                                 # + 'epoch_%d_%s_%.4f' %(epoch, test_setting, best_auc))
 
@@ -279,7 +279,7 @@ def get_cmd():
                         help='using path enhance branch')
     parser.add_argument('-CE',
                         '--context_enhance',
-                        default= 1,
+                        default= 0,
                         type=int,
                         help='using context enhance branch')
     args = parser.parse_args()
@@ -304,7 +304,7 @@ if __name__ == '__main__':
     conf['pretrained_model'] = 'TransE'  # OR "TransR"
 
     if conf['dataset'] == "iqon_s":
-        pretrain_model_file = f"{conf['pretrained_model']}.pth.tar"
+        pretrain_model_file = f"{conf['pretrained_model']}_AUC_0.6809.pth.tar"
     elif conf['dataset'] == "Polyvore_519":
         if conf['mode'] == 'RB':
             pretrain_model_file = f"{conf['pretrained_model']}.pth.tar" #0.7484 #"epoch_118_p0c0_RB_AUC_0.7645.pth"
@@ -312,11 +312,11 @@ if __name__ == '__main__':
         if conf['mode'] == 'RB':
             pretrain_model_file = f"{conf['pretrained_model']}.pth.tar" # 0.8765 "epoch_77_p0c0_RB_AUC_0.8607.pth"
 
-    pretrain_model_dir = 'saved/' + conf['dataset'] + '/pretrained_model/'
+    pretrain_model_dir = './saved/' + conf['dataset'] + '/pretrained_model/'
     pretrain_model_path = os.path.join(pretrain_model_dir, pretrain_model_file)
-    print("pretrain_model_path:", pretrain_model_path)
     
     if os.path.exists(pretrain_model_path):
+        print("pretrain_model_path:", pretrain_model_path)
         conf['pretrain_mode'] = False
         print("loading pretrained model from:", pretrain_model_path)
         conf['batch_size'] = 1024
